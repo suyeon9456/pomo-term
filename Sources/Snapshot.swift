@@ -3,8 +3,9 @@ import SwiftUI
 
 /// 개발용: `PomodoroTodo --snapshot <폴더>`로 실행하면 각 화면을 샘플 데이터로 PNG 렌더링하고 종료.
 /// 화면 녹화 권한 없이 시안과 비교하기 위한 도구. data.json은 건드리지 않음.
+@MainActor
 enum Snapshot {
-    static var outputDirectory: URL? {
+    nonisolated static var outputDirectory: URL? {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count else { return nil }
         return URL(fileURLWithPath: args[i + 1], isDirectory: true)
@@ -23,6 +24,17 @@ enum Snapshot {
         breakStore.skip()
         render(MainWindowView().environmentObject(breakStore), size: CGSize(width: 1280, height: 840),
                to: dir.appendingPathComponent("main-break.png"))
+
+        render(MenuBarPopover().environmentObject(store).fixedSize(), size: CGSize(width: 320, height: 460),
+               to: dir.appendingPathComponent("popover.png"))
+        let pills = HStack(spacing: 12) {
+            Image(nsImage: MenuBarLabel.image(time: "18:42", mode: .focus, running: true))
+            Image(nsImage: MenuBarLabel.image(time: "05:00", mode: .shortBreak, running: true))
+            Image(nsImage: MenuBarLabel.image(time: "25:00", mode: .focus, running: false))
+        }
+        .padding(8)
+        .background(Color(hex: 0x141717))
+        render(pills, size: CGSize(width: 320, height: 40), to: dir.appendingPathComponent("menubar-label.png"))
     }
 
     static func render<V: View>(_ view: V, size: CGSize, to url: URL) {

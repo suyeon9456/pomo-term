@@ -22,14 +22,11 @@ struct PomodoroTodoApp: App {
         .defaultSize(width: 1100, height: 760)
 
         MenuBarExtra {
-            MenuBarView().environmentObject(store)
+            MenuBarPopover().environmentObject(store)
         } label: {
-            if store.isRunning {
-                Text("\(store.mode.emoji) \(store.timeString)")
-            } else {
-                Image(systemName: "timer")
-            }
+            MenuBarLabel().environmentObject(store)
         }
+        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView().environmentObject(store)
