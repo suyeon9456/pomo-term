@@ -393,8 +393,16 @@ private struct TimerPane: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("$ pomo \(store.mode.key) --running=\(store.isRunning ? "true" : "false")")
-                    .font(.term(13))
+                HStack(spacing: 6) {
+                    Text("$ pomo \(store.mode.key) --running=\(store.isRunning ? "true" : "false")")
+                        .font(.term(13))
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    let step = AppStore.minuteStep(for: store.mode)
+                    MinuteButton(title: "−\(step)", label: "\(store.mode.key) \(step)분 줄이기") { store.adjustCurrentMinutes(by: -1) }
+                    MinuteButton(title: "+\(step)", label: "\(store.mode.key) \(step)분 늘리기") { store.adjustCurrentMinutes(by: 1) }
+                }
+                .disabled(store.isRunning)
                 Text(store.timeString)
                     .font(.term(112, .extraBold))
                     .tracking(-0.04 * 112)
@@ -444,7 +452,8 @@ private struct TimerPane: View {
                 Text("start · pause · reset · skip")
                 Text("add <할 일> [M/D~M/D] · done <#> · focus <#>")
                 Text("ls today|sched · due <#> <M/D~M/D> (해제 -)")
-                Text("mode focus|short|long · mini · clear · help")
+                Text("mode <m> · set <m> <분> · mini · clear")
+                Text("help   (m: focus|short|long)")
             }
             .font(.term(12))
             .foregroundStyle(Color.term.dim)
@@ -486,6 +495,27 @@ struct OutlineButton: View {
         }
         .buttonStyle(.plain)
         .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel(label)
+    }
+}
+
+/// 집중·휴식 시간 −/+ 버튼. 실행 중엔 비활성
+private struct MinuteButton: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let title: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.term(12, .bold))
+                .foregroundStyle(isEnabled ? Color.term.text : Color.term.muted)
+                .frame(width: 40, height: 26)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isEnabled ? Color.term.borderStrong : Color.term.border))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
         .accessibilityLabel(label)
     }
 }

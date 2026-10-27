@@ -4,13 +4,15 @@ import UserNotifications
 
 final class AppStore: ObservableObject {
     @Published var todos: [TodoItem] = [] { didSet { save() } }
-    @Published var settings = AppSettings() { didSet { settingsChanged(oldValue) } }
+    @Published var settings = AppSettings() { didSet { settingsChanged() } }
     @Published var selectedTodoID: UUID? { didSet { save() } }
     @Published var todayCount = 0 { didSet { save() } }
     @Published var todayFocusMinutes = 0 { didSet { save() } }
 
     @Published private(set) var mode: TimerMode = .focus
     @Published private(set) var remaining: Int = 25 * 60
+    /// 지금 세션의 전체 길이. 진행 중에 설정을 바꿔도 이번 세션은 그대로, 다음 세션부터 적용
+    @Published private(set) var totalSeconds: Int = 25 * 60
     @Published private(set) var isRunning = false
     /// 긴 휴식 주기 안에서 몇 번째 집중인지 (1...longBreakInterval)
     @Published private(set) var session = 1
@@ -43,7 +45,7 @@ final class AppStore: ObservableObject {
     init(persistent: Bool = true) {
         self.persistent = persistent
         if persistent { load() }
-        remaining = duration(for: mode)
+        loadFullDuration()
         addLog("pomo v1.0 · help 를 입력하면 명령어를 볼 수 있어요", .info)
         if Self.canNotify {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
@@ -62,7 +64,6 @@ final class AppStore: ObservableObject {
 
     // MARK: - Timer
 
-    var totalSeconds: Int { duration(for: mode) }
     var progress: Double { totalSeconds == 0 ? 0 : 1 - Double(remaining) / Double(totalSeconds) }
     var timeString: String { String(format: "%02d:%02d", remaining / 60, remaining % 60) }
     var selectedTodo: TodoItem? { todos.first { $0.id == selectedTodoID && !$0.isDone } }
@@ -73,6 +74,16 @@ final class AppStore: ObservableObject {
     }
 
     func toggle() { isRunning ? pause() : start() }
+
+    private func loadFullDuration() {
+        totalSeconds = duration(for: mode)
+        remaining = totalSeconds
+    }
+
+    /// 아직 시작하지 않은(가득 찬) 타이머만 새 길이로 맞춤
+    private func refreshIdleTimer() {
+        if !isRunning && remaining == totalSeconds { loadFullDuration() }
+    }
 
     func start() {
         guard !isRunning else { return }
@@ -92,7 +103,7 @@ final class AppStore: ObservableObject {
 
     func reset() {
         stopTimer()
-        remaining = duration(for: mode)
+        loadFullDuration()
         addLog("↺ 타이머 초기화", .info)
     }
 
@@ -101,7 +112,7 @@ final class AppStore: ObservableObject {
     func switchMode(_ newMode: TimerMode) {
         stopTimer()
         mode = newMode
-        remaining = duration(for: newMode)
+        loadFullDuration()
     }
 
     private func stopTimer() {
@@ -125,7 +136,7 @@ final class AppStore: ObservableObject {
             if completed {
                 rollDayIfNeeded()
                 todayCount += 1
-                todayFocusMinutes += settings.focusMinutes
+                todayFocusMinutes += totalSeconds / 60
                 var detail = ""
                 if let id = selectedTodo?.id, let i = todos.firstIndex(where: { $0.id == id }) {
                     todos[i].completedPomodoros += 1
@@ -141,7 +152,7 @@ final class AppStore: ObservableObject {
             session = session % cycleLength + 1
             addLog("· break 종료, 다음 focus 준비", .warn)
         }
-        remaining = duration(for: mode)
+        loadFullDuration()
         if completed {
             notify(finished: finished)
             if settings.autoStartNext { start() }
@@ -168,13 +179,10 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private func settingsChanged(_ old: AppSettings) {
+    private func settingsChanged() {
         save()
         if session > cycleLength { session = 1 }
-        // 멈춰 있고 아직 시작 전인 타이머만 새 시간으로 맞춤
-        if !isRunning && remaining == minutes(for: mode, in: old) * 60 {
-            remaining = duration(for: mode)
-        }
+        refreshIdleTimer()
     }
 
     private func minutes(for mode: TimerMode, in s: AppSettings) -> Int {
@@ -220,6 +228,35 @@ final class AppStore: ObservableObject {
     var doneCount: Int { orderedTodos.filter(\.isDone).count }
     var remainingPomodoros: Int {
         orderedTodos.filter { !$0.isDone }.reduce(0) { $0 + max(0, $1.estimatedPomodoros - $1.completedPomodoros) }
+    }
+
+    /// 모드별 조절 단위와 범위 (설정 창과 같은 범위)
+    static func minuteStep(for mode: TimerMode) -> Int { mode == .shortBreak ? 1 : 5 }
+    static func minuteRange(for mode: TimerMode) -> ClosedRange<Int> {
+        switch mode {
+        case .focus: return 1...120
+        case .shortBreak: return 1...60
+        case .longBreak: return 1...90
+        }
+    }
+
+    func setMinutes(_ minutes: Int, for mode: TimerMode) {
+        let m = min(max(minutes, Self.minuteRange(for: mode).lowerBound), Self.minuteRange(for: mode).upperBound)
+        switch mode {
+        case .focus: settings.focusMinutes = m
+        case .shortBreak: settings.shortBreakMinutes = m
+        case .longBreak: settings.longBreakMinutes = m
+        }
+        addLog("· \(mode.key) \(m)m 으로 설정", .info)
+    }
+
+    /// −/+ 버튼: 지금 모드의 시간을 한 단위씩 조절
+    func adjustCurrentMinutes(by steps: Int) {
+        let current = minutes(for: mode, in: settings)
+        let step = Self.minuteStep(for: mode)
+        // 25 → 30처럼 단위에 맞춰 이동 (27에서 +5면 30)
+        let next = steps > 0 ? (current / step + 1) * step : ((current + step - 1) / step - 1) * step
+        setMinutes(next, for: mode)
     }
 
     func tabLabel(for mode: TimerMode) -> String { "\(mode.key) \(minutes(for: mode, in: settings))m" }
@@ -322,7 +359,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -378,6 +415,14 @@ final class AppStore: ObservableObject {
             case "short": switchMode(.shortBreak)
             case "long": switchMode(.longBreak)
             default: fail("usage: mode focus|short|long")
+            }
+        case "set":
+            let modes: [String: TimerMode] = ["focus": .focus, "short": .shortBreak, "long": .longBreak]
+            if parts.count == 3, let m = modes[parts[1].lowercased()], let n = Int(parts[2]),
+               Self.minuteRange(for: m).contains(n) {
+                setMinutes(n, for: m)
+            } else {
+                fail("usage: set focus|short|long <분>  (focus 1~120, short 1~60, long 1~90)")
             }
         case "mini", "m": toggleMiniTimer?()
         case "clear": log = []
