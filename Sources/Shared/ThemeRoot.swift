@@ -65,7 +65,8 @@ struct MenuBarPopover: View {
 
     var body: some View {
         switch themeID {
-        case .terminal, .cute: TerminalPopover()
+        case .terminal: TerminalPopover()
+        case .cute: CutePopover()
         }
     }
 }
@@ -79,7 +80,8 @@ struct MenuBarLabel: View {
     var body: some View {
         Group {
             switch themeID {
-            case .terminal, .cute: TerminalMenuBarLabel()
+            case .terminal: TerminalMenuBarLabel()
+            case .cute: CuteMenuBarLabel()
             }
         }
         .onAppear {

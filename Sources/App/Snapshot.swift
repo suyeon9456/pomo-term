@@ -43,6 +43,21 @@ enum Snapshot {
         render(cute(AnyView(MainWindowView().environmentObject(store))), size: CGSize(width: 820, height: 1000),
                to: dir.appendingPathComponent("cute-main-narrow.png"))
 
+        render(cute(AnyView(MenuBarPopover().environmentObject(store).fixedSize())), size: CGSize(width: 320, height: 600),
+               to: dir.appendingPathComponent("cute-popover.png"))
+        let cutePills = VStack(spacing: 10) {
+            ForEach([Color(hex: 0xF4EEE9), Color(hex: 0x2B2B2B)], id: \.self) { bar in
+                HStack(spacing: 12) {
+                    Image(nsImage: CuteMenuBarLabel.image(time: "18:42", mode: .focus, running: true))
+                    Image(nsImage: CuteMenuBarLabel.image(time: "05:00", mode: .shortBreak, running: true))
+                    Image(nsImage: CuteMenuBarLabel.image(time: "25:00", mode: .focus, running: false))
+                }
+                .padding(8)
+                .background(bar)
+            }
+        }
+        render(cutePills, size: CGSize(width: 320, height: 90), to: dir.appendingPathComponent("cute-menubar-label.png"))
+
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
