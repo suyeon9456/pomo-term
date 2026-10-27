@@ -315,31 +315,44 @@ private struct TaskRow: View {
             .accessibilityLabel(item.isCollapsed ? "\(item.title) 펼치기" : "\(item.title) 접기")
             .accessibilityHidden(!isStory)
 
-            Button { store.select(item) } label: {
+            if store.renamingID == item.id {
                 HStack(spacing: 0) {
                     if row.depth == 1 {
                         Text(row.isLastChild ? "└ " : "├ ").foregroundStyle(Color.term.muted)
                     }
-                    Text(item.title)
-                        .strikethrough(item.isDone, color: Color.term.muted)
-                        .foregroundStyle(item.isDone ? Color.term.muted : isActive ? Color.white : Color.term.text)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    if let p = store.taskProgress(item) {
-                        Text(" [\(p.done)/\(p.total)]")
-                            .font(.term(12))
-                            .foregroundStyle(p.done == p.total ? Color.term.accentFocus : Color.term.muted)
-                    }
-                    if isActive {
-                        Text("  ◀ now").font(.term(14, .bold)).foregroundStyle(Color.term.accentFocus)
-                    }
-                    Spacer(minLength: 0)
+                    RenameField(item: item)
                 }
-                .frame(minHeight: 40)
-                .contentShape(Rectangle())
+                .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+            } else {
+                Button { store.select(item) } label: {
+                    HStack(spacing: 0) {
+                        if row.depth == 1 {
+                            Text(row.isLastChild ? "└ " : "├ ").foregroundStyle(Color.term.muted)
+                        }
+                        Text(item.title)
+                            .strikethrough(item.isDone, color: Color.term.muted)
+                            .foregroundStyle(item.isDone ? Color.term.muted : isActive ? Color.white : Color.term.text)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if let p = store.taskProgress(item) {
+                            Text(" [\(p.done)/\(p.total)]")
+                                .font(.term(12))
+                                .foregroundStyle(p.done == p.total ? Color.term.accentFocus : Color.term.muted)
+                        }
+                        if isActive {
+                            Text("  ◀ now").font(.term(14, .bold)).foregroundStyle(Color.term.accentFocus)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(minHeight: 40)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                // 더블클릭하면 그 자리에서 제목 수정 (첫 클릭은 집중 대상 선택)
+                .simultaneousGesture(TapGesture(count: 2).onEnded { store.beginRename(item) })
+                .accessibilityLabel("\(item.title) 집중하기")
+                .accessibilityAction(named: "제목 수정") { store.beginRename(item) }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(item.title) 집중하기")
 
             // 마우스를 올리면 나타나는 버튼. 자리는 항상 차지해서 칸이 흔들리지 않게 함
             let showActions = hovering || TaskRowDebug.alwaysShowActions
@@ -414,6 +427,7 @@ private struct TaskRow: View {
     @ViewBuilder private var menu: some View {
         if !item.isDone { Button("집중하기") { store.select(item) } }
         Button(item.isDone ? "미완료로 되돌리기" : "완료", action: toggleDone)
+        Button("제목 수정") { store.beginRename(item) }
         Divider()
         if row.depth == 0 && !item.isDone {
             Button("하위 태스크 추가…") { store.beginAdd(.sub(item.id)) }
@@ -657,7 +671,7 @@ private struct TimerPane: View {
                 Text("commands").font(.term(12, .bold)).foregroundStyle(Color.term.text)
                 Text("start · pause · reset · skip")
                 Text("add <할 일> [M/D~M/D] · done <#> · focus <#>")
-                Text("sub <#> <태스크> · fold|unfold <#>   (#: 1, 1.2)")
+                Text("sub <#> <태스크> · mv <#> <제목>   (#: 1, 1.2)")
                 Text("ls today|sched · due <#> <M/D~M/D> (해제 -)")
                 Text("mode <m> · set <m> <분> · time <#> <분>")
                 Text("mini · clear · help   (m: focus|short|long)")
@@ -703,6 +717,41 @@ struct OutlineButton: View {
         .buttonStyle(.plain)
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel(label)
+    }
+}
+
+/// 제목을 그 자리에서 고치는 입력칸. Enter나 다른 곳을 누르면 저장, Esc는 취소
+private struct RenameField: View {
+    @EnvironmentObject var store: AppStore
+    let item: TodoItem
+    @State private var text: String
+    @FocusState private var focused: Bool
+
+    init(item: TodoItem) {
+        self.item = item
+        _text = State(initialValue: item.title)
+    }
+
+    var body: some View {
+        TextField("", text: $text)
+            .textFieldStyle(.plain)
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 4)
+            .frame(height: 28)
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.term.accentFocus))
+            .focused($focused)
+            .onSubmit(save)
+            .onExitCommand { store.renamingID = nil }
+            .onAppear { DispatchQueue.main.async { focused = true } }
+            .onChange(of: focused) { isFocused in
+                if !isFocused && store.renamingID == item.id { save() }
+            }
+            .accessibilityLabel("\(item.title) 제목 수정")
+    }
+
+    private func save() {
+        store.rename(item, text)
+        store.renamingID = nil
     }
 }
 

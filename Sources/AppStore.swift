@@ -409,7 +409,23 @@ final class AppStore: ObservableObject {
         if case .sub(let id) = target, let story = todos.first(where: { $0.id == id }) {
             setCollapsed(story, false)
         }
+        renamingID = nil
         inlineAdd = target
+    }
+
+    /// 제목을 고치는 중인 할 일 (한 번에 하나만)
+    @Published var renamingID: UUID?
+
+    func beginRename(_ item: TodoItem) {
+        inlineAdd = nil
+        renamingID = item.id
+    }
+
+    func rename(_ item: TodoItem, _ title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != item.title else { return }
+        update(item) { $0.title = trimmed }
+        addLog("· mv \"\(item.title)\" → \"\(trimmed)\"", .info)
     }
 
     func setPeriod(_ item: TodoItem, start: Date?, due: Date?) {
@@ -506,7 +522,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -544,6 +560,10 @@ final class AppStore: ObservableObject {
             if let picked, picked.parentID != nil { fail("하위 작업은 두 단계(스토리 > 태스크)까지만 만들 수 있어요") }
             else if let picked, !title.isEmpty { addSubtask(to: picked, title, period: period) }
             else { fail("usage: sub <#> <태스크> [M/D~M/D]") }
+        case "mv":
+            let title = parts.dropFirst(2).joined(separator: " ")
+            if let picked, !title.isEmpty { rename(picked, title) }
+            else { fail("usage: mv <#> <새 제목>") }
         case "fold", "unfold":
             if let picked, hasChildren(picked) { setCollapsed(picked, head == "fold") }
             else { fail("usage: \(head) <#>  (하위 태스크가 있는 스토리 번호)") }

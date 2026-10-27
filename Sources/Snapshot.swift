@@ -15,6 +15,10 @@ enum Snapshot {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let store = AppStore.sample()
+        let renameStore = AppStore.sample()
+        renameStore.renamingID = renameStore.orderedTodos[1].id
+        render(MainWindowView().environmentObject(renameStore), size: CGSize(width: 1280, height: 840),
+               to: dir.appendingPathComponent("main-rename.png"))
         render(MainWindowView().environmentObject(store), size: CGSize(width: 1280, height: 840),
                to: dir.appendingPathComponent("main.png"))
         render(MainWindowView().environmentObject(store), size: CGSize(width: 640, height: 900),
