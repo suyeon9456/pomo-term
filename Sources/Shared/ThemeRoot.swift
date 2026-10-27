@@ -26,6 +26,25 @@ extension EnvironmentValues {
     }
 }
 
+extension ListTab {
+    /// ⌘1 / ⌘2 / ⌘3 (모든 테마 공통)
+    var shortcutKey: KeyEquivalent {
+        switch self {
+        case .today: return "1"
+        case .scheduled: return "2"
+        case .done: return "3"
+        }
+    }
+
+    var accessibilityName: String {
+        switch self {
+        case .today: return "오늘 할 일"
+        case .scheduled: return "기간 할 일"
+        case .done: return "완료함"
+        }
+    }
+}
+
 // MARK: - 테마별 화면으로 갈라지는 지점
 
 struct MainWindowView: View {

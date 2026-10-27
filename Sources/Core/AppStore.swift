@@ -224,7 +224,7 @@ final class AppStore: ObservableObject {
     /// - today: 기간 없는 할 일 + 시작일이 오늘이거나 지난 기간 할 일 (마감일만 있는 할 일은 scheduled에만)
     /// - scheduled: 기간 할 일 전체, 마감일 순
     /// 탭 분류는 스토리 기준이고 하위 태스크는 스토리를 따라감.
-    /// 완료한 스토리는 완료한 날까지만 보임 (데이터에는 남음)
+    /// 완료한 스토리는 완료한 날까지만 보임 (데이터에는 남음). done 탭은 완료한 스토리 전체를 최근 순으로
     func rows(_ tab: ListTab, now: Date = Date()) -> [ListRow] {
         let today = Period.startOfDay(now)
         let visible = todos.filter { t in
@@ -234,6 +234,9 @@ final class AppStore: ObservableObject {
         }
         let list: [TodoItem]
         switch tab {
+        case .done:
+            list = todos.filter { $0.parentID == nil && $0.isDone }
+                .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
         case .today:
             list = visible.filter { t in
                 guard t.isScheduled else { return true }
@@ -540,7 +543,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched|done · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -589,7 +592,8 @@ final class AppStore: ObservableObject {
             switch arg.lowercased() {
             case "today", "t": listTab = .today
             case "sched", "scheduled", "s": listTab = .scheduled
-            default: fail("usage: ls today|sched")
+            case "done", "d": listTab = .done
+            default: fail("usage: ls today|sched|done")
             }
         case "due":
             guard let picked, parts.count == 3 else {

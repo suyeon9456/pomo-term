@@ -123,9 +123,17 @@ private struct TasksPane: View {
                     InlineAddRow(target: .sub(storyID))
                 }
             }
-            InlineAddRow(target: .top) { added in
-                // scheduled에는 기간이 필요하므로 추가하자마자 기간 설정 창을 엶
-                if store.listTab == .scheduled { editingPeriod = added }
+            if store.listTab != .done {
+                InlineAddRow(target: .top) { added in
+                    // scheduled에는 기간이 필요하므로 추가하자마자 기간 설정 창을 엶
+                    if store.listTab == .scheduled { editingPeriod = added }
+                }
+            } else if list.isEmpty {
+                Text("완료한 할 일이 없어요")
+                    .font(.term(13))
+                    .foregroundStyle(Color.term.muted)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.leading, TaskRow.numberWidth + 12)
             }
         }
     }
@@ -241,8 +249,8 @@ private struct ListTabButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .keyboardShortcut(tab == .today ? "1" : "2", modifiers: .command)
-        .accessibilityLabel(tab == .today ? "오늘 할 일" : "기간 할 일")
+        .keyboardShortcut(tab.shortcutKey, modifiers: .command)
+        .accessibilityLabel(tab.accessibilityName)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
@@ -539,7 +547,7 @@ private struct TimerPane: View {
                 Text("start · pause · reset · skip")
                 Text("add <할 일> [M/D~M/D] · done <#> · focus <#>")
                 Text("sub <#> <태스크> · mv <#> <제목>   (#: 1, 1.2)")
-                Text("ls today|sched · due <#> <M/D~M/D> (해제 -)")
+                Text("ls today|sched|done · due <#> <M/D~M/D>")
                 Text("mode <m> · set <m> <분> · time <#> <분>")
                 Text("mini · clear · help   (m: focus|short|long)")
             }
