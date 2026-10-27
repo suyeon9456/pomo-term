@@ -154,7 +154,7 @@ struct MenuBarPopover: View {
                         Text("\(entry.number)").foregroundStyle(Color.term.muted)
                         Text("[ ]")
                         Text(entry.item.title).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                        Text(AppStore.pomoBar(entry.item)).tracking(1).foregroundStyle(Color.term.error)
+                        Text(store.pomoBar(for: entry.item)).tracking(1).foregroundStyle(Color.term.error)
                     }
                     .frame(minHeight: 36)
                     .contentShape(Rectangle())

@@ -210,7 +210,7 @@ private struct TaskRow: View {
             Text("#\(item.project.rawValue)")
                 .font(.term(13))
                 .foregroundStyle(item.project.color)
-            Text(AppStore.pomoBar(item))
+            Text(store.pomoBar(for: item))
                 .font(.term(13))
                 .tracking(1)
                 .foregroundStyle(Color.term.error)

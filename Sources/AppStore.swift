@@ -214,16 +214,20 @@ final class AppStore: ObservableObject {
 
     // MARK: - Derived values
 
-    /// 지금 보고 있는 목록
+    /// 지금 보고 있는 목록 (스토리와 하위 태스크를 펼친 순서)
     var orderedTodos: [TodoItem] { orderedTodos(listTab) }
 
-    /// 미완료 → 완료 순서. 화면의 # 번호와 명령어의 <#>가 이 순서를 따름
+    func orderedTodos(_ tab: ListTab, now: Date = Date()) -> [TodoItem] { rows(tab, now: now).map(\.item) }
+
+    /// 화면의 # 번호와 명령어의 <#>가 이 순서를 따름. 스토리는 미완료 → 완료 순, 하위 태스크는 추가한 순서
     /// - today: 기간 없는 할 일 + 시작일이 오늘이거나 지난 기간 할 일 (마감일만 있는 할 일은 scheduled에만)
     /// - scheduled: 기간 할 일 전체, 마감일 순
-    /// 완료한 할 일은 완료한 날까지만 보임 (데이터에는 남음)
-    func orderedTodos(_ tab: ListTab, now: Date = Date()) -> [TodoItem] {
+    /// 탭 분류는 스토리 기준이고 하위 태스크는 스토리를 따라감.
+    /// 완료한 스토리는 완료한 날까지만 보임 (데이터에는 남음)
+    func rows(_ tab: ListTab, now: Date = Date()) -> [ListRow] {
         let today = Period.startOfDay(now)
         let visible = todos.filter { t in
+            guard t.parentID == nil else { return false }
             guard t.isDone else { return true }
             return t.completedAt.map { Period.startOfDay($0) >= today } ?? true
         }
@@ -240,13 +244,52 @@ final class AppStore: ObservableObject {
                 ($0.dueDate ?? .distantFuture, $0.startDate ?? .distantPast) < ($1.dueDate ?? .distantFuture, $1.startDate ?? .distantPast)
             }
         }
-        return list.filter { !$0.isDone } + list.filter(\.isDone)
+        let stories = list.filter { !$0.isDone } + list.filter(\.isDone)
+        return stories.enumerated().flatMap { i, story in
+            [ListRow(number: "\(i + 1)", item: story, depth: 0)]
+                + children(of: story).enumerated().map { j, task in
+                    ListRow(number: "\(i + 1).\(j + 1)", item: task, depth: 1)
+                }
+        }
     }
 
-    var openCount: Int { orderedTodos.filter { !$0.isDone }.count }
-    var doneCount: Int { orderedTodos.filter(\.isDone).count }
+    func children(of item: TodoItem) -> [TodoItem] { todos.filter { $0.parentID == item.id } }
+    func parent(of item: TodoItem) -> TodoItem? { item.parentID.flatMap { id in todos.first { $0.id == id } } }
+    func hasChildren(_ item: TodoItem) -> Bool { todos.contains { $0.parentID == item.id } }
+
+    /// 하위 태스크가 있는 스토리는 집계용이므로, 개수·남은 뽀모도로는 실제 작업 단위(잎)로 셈
+    private var leafRows: [TodoItem] { orderedTodos.filter { !hasChildren($0) } }
+    var openCount: Int { leafRows.filter { !$0.isDone }.count }
+    var doneCount: Int { leafRows.filter(\.isDone).count }
     var remainingPomodoros: Int {
-        orderedTodos.filter { !$0.isDone }.reduce(0) { $0 + max(0, $1.estimatedPomodoros - $1.completedPomodoros) }
+        leafRows.filter { !$0.isDone }.reduce(0) { $0 + max(0, $1.estimatedPomodoros - $1.completedPomodoros) }
+    }
+
+    /// 스토리는 하위 태스크 합계(+ 스토리에 직접 쌓은 뽀모도로)
+    func pomoCounts(_ item: TodoItem) -> (done: Int, est: Int) {
+        let kids = children(of: item)
+        guard !kids.isEmpty else { return (item.completedPomodoros, item.estimatedPomodoros) }
+        return (item.completedPomodoros + kids.reduce(0) { $0 + $1.completedPomodoros },
+                kids.reduce(0) { $0 + $1.estimatedPomodoros })
+    }
+
+    /// 스토리의 태스크 진행률 (완료/전체). 하위 태스크가 없으면 nil
+    func taskProgress(_ item: TodoItem) -> (done: Int, total: Int)? {
+        let kids = children(of: item)
+        return kids.isEmpty ? nil : (kids.filter(\.isDone).count, kids.count)
+    }
+
+    func pomoBar(for item: TodoItem) -> String {
+        let c = pomoCounts(item)
+        return Self.pomoBar(done: c.done, est: c.est)
+    }
+
+    /// 다음에 집중할 후보: 같은 스토리의 열린 태스크 → 오늘 목록의 첫 열린 작업(열린 태스크가 있는 스토리는 건너뜀)
+    private func nextFocus(after item: TodoItem?) -> TodoItem? {
+        if let parent = item.flatMap(parent(of:)), let sibling = children(of: parent).first(where: { !$0.isDone }) {
+            return sibling
+        }
+        return orderedTodos(.today).first { t in !t.isDone && !children(of: t).contains { !$0.isDone } }
     }
 
     /// 모드별 조절 단위와 범위 (설정 창과 같은 범위)
@@ -329,10 +372,10 @@ final class AppStore: ObservableObject {
     }
 
     /// ●●○ 형태. 6개를 넘으면 칸이 밀리지 않게 ●3/20 처럼 숫자로
-    static func pomoBar(_ item: TodoItem) -> String {
-        let n = max(item.estimatedPomodoros, item.completedPomodoros)
-        guard n <= 6 else { return (item.completedPomodoros > 0 ? "●" : "○") + "\(item.completedPomodoros)/\(n)" }
-        return (0..<n).map { $0 < item.completedPomodoros ? "●" : "○" }.joined()
+    static func pomoBar(done: Int, est: Int) -> String {
+        let n = max(est, done)
+        guard n <= 6 else { return (done > 0 ? "●" : "○") + "\(done)/\(n)" }
+        return (0..<n).map { $0 < done ? "●" : "○" }.joined()
     }
 
     // MARK: - Log
@@ -368,13 +411,63 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func toggleDone(_ item: TodoItem) {
+    /// 하위 태스크 추가. 태그는 스토리를 따르고, 기간은 비워두면 스토리 기간을 따름
+    func addSubtask(to story: TodoItem, _ title: String, period: (start: Date?, due: Date)? = nil) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, story.parentID == nil else { return }
+        var item = TodoItem(title: trimmed, project: story.project)
+        item.parentID = story.id
+        item.startDate = period?.start
+        item.dueDate = period?.due
+        todos.append(item)
+        update(story) { $0.isCollapsed = false }
+        addLog("+ added \"\(trimmed)\" → \(story.title)", .add)
+    }
+
+    func openChildrenCount(_ item: TodoItem) -> Int { children(of: item).filter { !$0.isDone }.count }
+
+    /// 열린 하위 태스크가 있는 스토리를 완료할 때 includeTasks가 true면 태스크도 함께 완료
+    func toggleDone(_ item: TodoItem, includeTasks: Bool = false) {
         guard let i = todos.firstIndex(where: { $0.id == item.id }) else { return }
+        let now = Date()
         todos[i].isDone.toggle()
-        todos[i].completedAt = todos[i].isDone ? Date() : nil
-        if selectedTodo == nil { selectedTodoID = orderedTodos(.today).first { !$0.isDone }?.id }
+        todos[i].completedAt = todos[i].isDone ? now : nil
         let t = todos[i]
-        addLog(t.isDone ? "✓ done \(t.title)" : "↩ reopen \(t.title)", t.isDone ? .success : .info)
+        if t.isDone && includeTasks {
+            for k in todos.indices where todos[k].parentID == t.id && !todos[k].isDone {
+                todos[k].isDone = true
+                todos[k].completedAt = now
+            }
+        }
+        // 완료된 스토리의 태스크를 다시 열면 스토리도 다시 열림
+        if !t.isDone, let p = parent(of: t), p.isDone, let pi = todos.firstIndex(where: { $0.id == p.id }) {
+            todos[pi].isDone = false
+            todos[pi].completedAt = nil
+        }
+        if selectedTodo == nil { selectedTodoID = nextFocus(after: t)?.id }
+        addLog(t.isDone ? "✓ done \(t.title)\(includeTasks ? " (태스크 포함)" : "")" : "↩ reopen \(t.title)",
+               t.isDone ? .success : .info)
+    }
+
+    func setCollapsed(_ item: TodoItem, _ collapsed: Bool) {
+        update(item) { $0.isCollapsed = collapsed }
+    }
+
+    /// 스토리의 태그를 바꾸면 같은 태그였던 하위 태스크도 따라 바뀜
+    func setProject(_ item: TodoItem, _ project: Project) {
+        let old = item.project
+        update(item) { $0.project = project }
+        for k in todos.indices where todos[k].parentID == item.id && todos[k].project == old {
+            todos[k].project = project
+        }
+    }
+
+    /// 명령어 입력줄에 미리 채우고 포커스 (예: 우클릭 → 하위 태스크 추가 → "sub 1 ")
+    @Published var commandDraft = ""
+    @Published private(set) var commandFocusToken = 0
+    func prefillCommand(_ text: String) {
+        commandDraft = text
+        commandFocusToken += 1
     }
 
     func select(_ item: TodoItem) {
@@ -388,17 +481,22 @@ final class AppStore: ObservableObject {
         change(&todos[i])
     }
 
+    /// 스토리를 지우면 하위 태스크도 함께 지움
     func delete(_ item: TodoItem) {
-        todos.removeAll { $0.id == item.id }
-        if selectedTodo == nil { selectedTodoID = orderedTodos(.today).first { !$0.isDone }?.id }
-        addLog("- removed \"\(item.title)\"", .info)
+        let kids = children(of: item).count
+        todos.removeAll { $0.id == item.id || $0.parentID == item.id }
+        if selectedTodo == nil { selectedTodoID = nextFocus(after: nil)?.id }
+        addLog("- removed \"\(item.title)\"\(kids > 0 ? " (태스크 \(kids)개 포함)" : "")", .info)
     }
 
-    func clearDone() { todos.removeAll { $0.isDone } }
+    func clearDone() {
+        let doneIDs = Set(todos.filter(\.isDone).map(\.id))
+        todos.removeAll { $0.isDone || $0.parentID.map(doneIDs.contains) == true }
+    }
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -408,9 +506,18 @@ final class AppStore: ObservableObject {
         let parts = line.split(whereSeparator: \.isWhitespace).map(String.init)
         let head = parts[0].lowercased()
         let arg = parts.dropFirst().joined(separator: " ")
-        let list = orderedTodos
-        let picked = Int(arg).flatMap { list.indices.contains($0 - 1) ? list[$0 - 1] : nil }
+        let rowList = rows(listTab)
+        // <#>는 "2" 또는 "1.2"
+        let find = { (number: String) in rowList.first { $0.number == number }?.item }
+        let picked = parts.count > 1 ? find(parts[1]) : nil
         let fail = { (msg: String) in self.addLog("✗ \(msg)", .error) }
+        /// 마지막 단어가 기간이면 떼어냄 (예: 리팩터링 10/27~10/31)
+        let splitPeriod = { (words: [String]) -> (title: String, period: (start: Date?, due: Date)?) in
+            if words.count > 1, let p = Period.parse(words.last!) {
+                return (words.dropLast().joined(separator: " "), p)
+            }
+            return (words.joined(separator: " "), nil)
+        }
 
         switch head {
         case "start", "s": start()
@@ -418,16 +525,18 @@ final class AppStore: ObservableObject {
         case "reset", "r": reset()
         case "skip": skip()
         case "add", "a":
-            // 마지막 단어가 기간이면 기간 할 일로 추가 (예: add 리팩터링 10/27~10/31)
-            var title = arg
-            var period: (start: Date?, due: Date)?
-            if parts.count > 2, let p = Period.parse(parts.last!) {
-                period = p
-                title = parts.dropFirst().dropLast().joined(separator: " ")
-            }
+            let (title, period) = splitPeriod(Array(parts.dropFirst()))
             if title.isEmpty { fail("usage: add <할 일> [M/D~M/D]") }
             else if listTab == .scheduled && period == nil { fail("scheduled에는 기간이 필요해요: add <할 일> ~M/D") }
             else { addTodo(title, period: period) }
+        case "sub":
+            let (title, period) = splitPeriod(Array(parts.dropFirst(2)))
+            if let picked, picked.parentID != nil { fail("하위 작업은 두 단계(스토리 > 태스크)까지만 만들 수 있어요") }
+            else if let picked, !title.isEmpty { addSubtask(to: picked, title, period: period) }
+            else { fail("usage: sub <#> <태스크> [M/D~M/D]") }
+        case "fold", "unfold":
+            if let picked, hasChildren(picked) { setCollapsed(picked, head == "fold") }
+            else { fail("usage: \(head) <#>  (하위 태스크가 있는 스토리 번호)") }
         case "ls":
             switch arg.lowercased() {
             case "today", "t": listTab = .today
@@ -435,15 +544,21 @@ final class AppStore: ObservableObject {
             default: fail("usage: ls today|sched")
             }
         case "due":
-            let num = parts.count > 1 ? Int(parts[1]) : nil
-            guard let num, list.indices.contains(num - 1), parts.count == 3 else {
+            guard let picked, parts.count == 3 else {
                 fail("usage: due <#> <M/D~M/D>   (기간 해제: due <#> -)"); break
             }
-            if parts[2] == "-" { setPeriod(list[num - 1], start: nil, due: nil) }
-            else if let p = Period.parse(parts[2]) { setPeriod(list[num - 1], start: p.start, due: p.due) }
+            if parts[2] == "-" { setPeriod(picked, start: nil, due: nil) }
+            else if let p = Period.parse(parts[2]) { setPeriod(picked, start: p.start, due: p.due) }
             else { fail("기간 형식: 11/3, ~11/3, 10/27~10/31, ~내일") }
         case "done", "d":
-            if let picked { toggleDone(picked) } else { fail("usage: done <#>") }
+            guard let picked else { fail("usage: done <#> [--all|--only]"); break }
+            let flag = parts.count > 2 ? parts[2] : nil
+            let open = openChildrenCount(picked)
+            if !picked.isDone && open > 0 && flag == nil {
+                addLog("! 열린 태스크 \(open)개가 있어요 → 모두 완료: done \(parts[1]) --all · 스토리만: done \(parts[1]) --only", .warn)
+            } else {
+                toggleDone(picked, includeTasks: flag == "--all")
+            }
         case "focus", "f":
             if let picked, !picked.isDone { select(picked) }
             else if arg.isEmpty { switchMode(.focus) }
@@ -456,12 +571,11 @@ final class AppStore: ObservableObject {
             default: fail("usage: mode focus|short|long")
             }
         case "time", "t":
-            let num = parts.count > 1 ? Int(parts[1]) : nil
-            guard let num, list.indices.contains(num - 1), parts.count == 3 else {
+            guard let picked, parts.count == 3 else {
                 fail("usage: time <#> <분>   (기본으로: time <#> -)"); break
             }
-            if parts[2] == "-" { setFocusMinutes(list[num - 1], nil) }
-            else if let n = Int(parts[2]), Self.minuteRange(for: .focus).contains(n) { setFocusMinutes(list[num - 1], n) }
+            if parts[2] == "-" { setFocusMinutes(picked, nil) }
+            else if let n = Int(parts[2]), Self.minuteRange(for: .focus).contains(n) { setFocusMinutes(picked, n) }
             else { fail("집중 시간은 1~120분") }
         case "set":
             let modes: [String: TimerMode] = ["focus": .focus, "short": .shortBreak, "long": .longBreak]

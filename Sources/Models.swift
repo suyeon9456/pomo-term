@@ -20,6 +20,10 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var completedAt: Date?
     /// 이 할 일만의 집중 시간(분). nil이면 기본 집중 시간
     var focusMinutes: Int?
+    /// 하위 태스크면 상위 스토리의 id (스토리 > 태스크 두 단계까지만)
+    var parentID: UUID?
+    /// 스토리의 하위 태스크 접기
+    var isCollapsed = false
     var createdAt = Date()
 
     var isScheduled: Bool { dueDate != nil }
@@ -43,8 +47,18 @@ struct TodoItem: Identifiable, Codable, Equatable {
         dueDate = try c.decodeIfPresent(Date.self, forKey: .dueDate)
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         focusMinutes = try c.decodeIfPresent(Int.self, forKey: .focusMinutes)
+        parentID = try c.decodeIfPresent(UUID.self, forKey: .parentID)
+        isCollapsed = try c.decodeIfPresent(Bool.self, forKey: .isCollapsed) ?? false
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
+}
+
+/// 목록 한 줄. 스토리는 depth 0, 그 아래 태스크는 depth 1. number는 "1", "1.2"
+struct ListRow: Identifiable {
+    let number: String
+    let item: TodoItem
+    let depth: Int
+    var id: UUID { item.id }
 }
 
 enum ListTab: String, CaseIterable {
