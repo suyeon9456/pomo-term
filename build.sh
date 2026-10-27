@@ -1,11 +1,11 @@
 #!/bin/zsh
-# PomodoroTodo.app 빌드 스크립트 (Xcode 없이 swiftc로 직접 빌드)
+# PomodoroTodo.app 빌드 스크립트 (Xcode 없이 Command Line Tools의 swiftc로 직접 빌드)
 set -e
 cd "$(dirname "$0")"
 
-DEV=/Applications/Xcode.app/Contents/Developer
-SWIFTC=$DEV/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc
-SDK=$DEV/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+export DEVELOPER_DIR=/Library/Developer/CommandLineTools
+SWIFTC=$DEVELOPER_DIR/usr/bin/swiftc
+SDK=$DEVELOPER_DIR/SDKs/MacOSX.sdk
 APP=build/PomodoroTodo.app
 
 rm -rf "$APP"
@@ -13,6 +13,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 "$SWIFTC" -O -swift-version 5 -sdk "$SDK" -target arm64-apple-macos14.0 \
   -parse-as-library Sources/*.swift -o "$APP/Contents/MacOS/PomodoroTodo"
+
+if [ -d Resources ]; then cp -R Resources/ "$APP/Contents/Resources/"; fi
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -28,6 +30,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>ATSApplicationFontsPath</key><string>Fonts</string>
 </dict>
 </plist>
 EOF
