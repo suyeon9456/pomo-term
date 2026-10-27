@@ -63,11 +63,14 @@ private struct TitleBar: View {
 private struct TasksPane: View {
     @EnvironmentObject var store: AppStore
     let scrolls: Bool
+    @State private var editingPeriod: TodoItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("── tasks.md ───────").font(.term(13, .bold)).foregroundStyle(Color.term.accentFocus)
+            HStack(spacing: 6) {
+                ForEach(ListTab.allCases, id: \.self) { tab in
+                    ListTabButton(tab: tab)
+                }
                 Spacer(minLength: 12)
                 Text("\(store.openCount) open · \(store.doneCount) done · ~\(store.remainingPomodoros) pomo left")
                     .font(.term(13))
@@ -75,11 +78,15 @@ private struct TasksPane: View {
                     .lineLimit(1)
             }
 
+            let list = store.orderedTodos
+            // 목록에 기간 할 일이 하나라도 있으면 period 칸을 보여줌
+            let showsPeriod = list.contains(where: \.isScheduled)
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
                     Text("#").frame(width: 24, alignment: .trailing)
                     Text("st").frame(width: 44, alignment: .leading)
                     Text("title").frame(maxWidth: .infinity, alignment: .leading)
+                    if showsPeriod { Text("period").frame(width: TaskRow.periodWidth, alignment: .leading) }
                     Text("tag · pomo")
                 }
                 .font(.term(12))
@@ -88,9 +95,9 @@ private struct TasksPane: View {
                 .overlay(alignment: .bottom) { DashedLine(color: .term.border) }
 
                 if scrolls {
-                    ScrollView { rows }
+                    ScrollView { rows(list, showsPeriod: showsPeriod) }
                 } else {
-                    rows
+                    rows(list, showsPeriod: showsPeriod)
                 }
             }
             .frame(maxHeight: scrolls ? .infinity : nil, alignment: .top)
@@ -99,16 +106,19 @@ private struct TasksPane: View {
         }
         .padding(.vertical, 18)
         .padding(.horizontal, 22)
+        .sheet(item: $editingPeriod) { item in
+            PeriodEditor(item: item).environmentObject(store)
+        }
     }
 
-    private var rows: some View {
+    private func rows(_ list: [TodoItem], showsPeriod: Bool) -> some View {
         LazyVStack(spacing: 0) {
-            let list = store.orderedTodos
             ForEach(Array(list.enumerated()), id: \.element.id) { i, item in
-                TaskRow(number: i + 1, item: item)
+                TaskRow(number: i + 1, item: item, showsPeriod: showsPeriod) { editingPeriod = item }
             }
             if list.isEmpty {
-                Text("할 일이 없어요 — add <할 일> 로 추가")
+                Text(store.listTab == .today ? "할 일이 없어요 — add <할 일> 로 추가"
+                                             : "기간 할 일이 없어요 — add <할 일> ~M/D 로 추가")
                     .font(.term(13))
                     .foregroundStyle(Color.term.muted)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -118,10 +128,37 @@ private struct TasksPane: View {
     }
 }
 
+private struct ListTabButton: View {
+    @EnvironmentObject var store: AppStore
+    let tab: ListTab
+
+    var body: some View {
+        let selected = store.listTab == tab
+        Button { store.listTab = tab } label: {
+            Text(tab.fileName)
+                .font(.term(13, .bold))
+                .foregroundStyle(selected ? Color.term.accentFocus : Color.term.dim)
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                .background(selected ? Color.term.tabActive : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Color.term.accentFocus : Color.term.borderStrong))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut(tab == .today ? "1" : "2", modifiers: .command)
+        .accessibilityLabel(tab == .today ? "오늘 할 일" : "기간 할 일")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
 private struct TaskRow: View {
     @EnvironmentObject var store: AppStore
     let number: Int
     let item: TodoItem
+    let showsPeriod: Bool
+    let onEditPeriod: () -> Void
+
+    static let periodWidth: CGFloat = 150
 
     private var isActive: Bool { store.selectedTodo?.id == item.id }
 
@@ -160,6 +197,10 @@ private struct TaskRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(item.title) 집중하기")
 
+            if showsPeriod {
+                period.frame(width: Self.periodWidth, alignment: .leading)
+            }
+
             Text("#\(item.project.rawValue)")
                 .font(.term(13))
                 .foregroundStyle(item.project.color)
@@ -175,10 +216,29 @@ private struct TaskRow: View {
         .contextMenu { menu }
     }
 
+    @ViewBuilder private var period: some View {
+        if let due = item.dueDate {
+            let days = Period.daysLeft(until: due)
+            // 마감이 지났거나 오늘이면 빨강, 3일 이내면 앰버
+            let ddayColor: Color = item.isDone ? .term.muted : days <= 0 ? .term.error : days <= 3 ? .term.accentBreak : .term.muted
+            HStack(spacing: 6) {
+                Text(Period.text(start: item.startDate, due: due)).foregroundStyle(item.isDone ? Color.term.muted : Color.term.dim)
+                Text(Period.ddayText(until: due)).foregroundStyle(ddayColor)
+            }
+            .font(.term(12))
+            .lineLimit(1)
+            .accessibilityLabel("기간 \(Period.text(start: item.startDate, due: due)), \(Period.ddayText(until: due))")
+        } else {
+            Text("")
+        }
+    }
+
     @ViewBuilder private var menu: some View {
         if !item.isDone { Button("집중하기") { store.select(item) } }
         Button(item.isDone ? "미완료로 되돌리기" : "완료") { store.toggleDone(item) }
         Divider()
+        Button(item.isScheduled ? "기간 변경…" : "기간 설정…", action: onEditPeriod)
+        if item.isScheduled { Button("기간 해제 (오늘 할 일로)") { store.setPeriod(item, start: nil, due: nil) } }
         Picker("태그", selection: Binding(get: { item.project },
                                          set: { p in store.update(item) { $0.project = p } })) {
             ForEach(Project.allCases, id: \.self) { Text("#\($0.rawValue)").tag($0) }
@@ -189,6 +249,83 @@ private struct TaskRow: View {
         }
         Divider()
         Button("삭제", role: .destructive) { store.delete(item) }
+    }
+}
+
+/// 우클릭 → 기간 설정… 에서 여는 시트
+struct PeriodEditor: View {
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    let item: TodoItem
+
+    @State private var hasStart: Bool
+    @State private var start: Date
+    @State private var due: Date
+
+    init(item: TodoItem) {
+        self.item = item
+        let today = Period.startOfDay(Date())
+        _hasStart = State(initialValue: item.startDate != nil)
+        _start = State(initialValue: item.startDate ?? today)
+        _due = State(initialValue: item.dueDate ?? Calendar.current.date(byAdding: .day, value: 7, to: today) ?? today)
+    }
+
+    private var isValid: Bool { !hasStart || Period.startOfDay(start) <= Period.startOfDay(due) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("── period ───────").font(.term(13, .bold)).foregroundStyle(Color.term.accentFocus)
+            Text(item.title).foregroundStyle(Color.term.bright).lineLimit(2)
+
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                GridRow {
+                    Toggle("start", isOn: $hasStart).toggleStyle(.checkbox)
+                    DatePicker("", selection: $start, displayedComponents: .date).labelsHidden().disabled(!hasStart)
+                }
+                GridRow {
+                    Text("due").foregroundStyle(Color.term.dim)
+                    DatePicker("", selection: $due, displayedComponents: .date).labelsHidden()
+                }
+            }
+
+            Text(isValid ? "\(Period.text(start: hasStart ? start : nil, due: due))  \(Period.ddayText(until: due))"
+                         : "✗ 시작일이 마감일보다 늦어요")
+                .font(.term(12))
+                .foregroundStyle(isValid ? Color.term.dim : Color.term.error)
+
+            HStack(spacing: 8) {
+                if item.isScheduled {
+                    OutlineButton(title: "기간 해제", label: "기간 해제", height: 36, fontSize: 13) {
+                        store.setPeriod(item, start: nil, due: nil)
+                        dismiss()
+                    }
+                }
+                Spacer()
+                OutlineButton(title: "취소", label: "취소", height: 36, fontSize: 13) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button {
+                    store.setPeriod(item, start: hasStart ? start : nil, due: due)
+                    dismiss()
+                } label: {
+                    Text("저장")
+                        .font(.term(13, .extraBold))
+                        .foregroundStyle(Color.term.window)
+                        .padding(.horizontal, 18)
+                        .frame(height: 36)
+                        .background(isValid ? Color.term.accentFocus : Color.term.muted, in: RoundedRectangle(cornerRadius: 4))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isValid)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .font(.term(13))
+        .foregroundStyle(Color.term.text)
+        .padding(22)
+        .frame(width: 400)
+        .background(Color.term.window)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -305,7 +442,8 @@ private struct TimerPane: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("commands").font(.term(12, .bold)).foregroundStyle(Color.term.text)
                 Text("start · pause · reset · skip")
-                Text("add <할 일> · done <#> · focus <#>")
+                Text("add <할 일> [M/D~M/D] · done <#> · focus <#>")
+                Text("ls today|sched · due <#> <M/D~M/D> (해제 -)")
                 Text("mode focus|short|long · mini · clear · help")
             }
             .font(.term(12))
@@ -390,7 +528,7 @@ private struct StatusBar: View {
         HStack(spacing: 0) {
             cell(store.mode.upper, fg: .term.window, bg: store.mode.accent)
             cell(store.timeString, fg: .term.bright, bg: .term.border)
-            cell("⎇ today", fg: .term.dim, weight: .medium)
+            cell("⎇ \(store.listTab.rawValue)", fg: .term.dim, weight: .medium)
             Spacer(minLength: 0)
             cell("\(store.todayCount) pomo · \(store.focusTimeText)", fg: .term.dim, weight: .medium)
             cell(Self.dateText, fg: .term.bright, bg: .term.border)

@@ -20,6 +20,13 @@ enum Snapshot {
         render(MainWindowView().environmentObject(store), size: CGSize(width: 640, height: 900),
                to: dir.appendingPathComponent("main-narrow.png"))
 
+        let schedStore = AppStore.sample()
+        schedStore.listTab = .scheduled
+        render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
+               to: dir.appendingPathComponent("main-scheduled.png"))
+        render(PeriodEditor(item: schedStore.orderedTodos[0]).environmentObject(schedStore),
+               size: CGSize(width: 400, height: 280), to: dir.appendingPathComponent("period-editor.png"))
+
         let breakStore = AppStore.sample()
         breakStore.skip()
         render(MainWindowView().environmentObject(breakStore), size: CGSize(width: 1280, height: 840),

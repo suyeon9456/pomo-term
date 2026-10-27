@@ -251,8 +251,10 @@ final class AppStore: ObservableObject {
         return (m >= 60 ? "\(m / 60)h " : "") + "\(m % 60)m"
     }
 
+    /// ●●○ 형태. 6개를 넘으면 칸이 밀리지 않게 ●3/20 처럼 숫자로
     static func pomoBar(_ item: TodoItem) -> String {
         let n = max(item.estimatedPomodoros, item.completedPomodoros)
+        guard n <= 6 else { return (item.completedPomodoros > 0 ? "●" : "○") + "\(item.completedPomodoros)/\(n)" }
         return (0..<n).map { $0 < item.completedPomodoros ? "●" : "○" }.joined()
     }
 
@@ -319,7 +321,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D|-> · mode <m> · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -432,6 +434,22 @@ final class AppStore: ObservableObject {
             item("스탠드업 미팅 노트 정리", .work, est: 1, done: 1, completed: true),
             item("메일함 비우기", .personal, est: 1, done: 1, completed: true),
         ]
+        let cal = Calendar.current
+        let today = Period.startOfDay(Date())
+        func day(_ n: Int) -> Date { cal.date(byAdding: .day, value: n, to: today)! }
+        func scheduled(_ title: String, _ project: Project, est: Int, start: Int?, due: Int) -> TodoItem {
+            var t = TodoItem(title: title, estimatedPomodoros: est, project: project)
+            t.startDate = start.map(day)
+            t.dueDate = day(due)
+            return t
+        }
+        s.todos += [
+            scheduled("결제 모듈 리팩터링", .work, est: 6, start: -1, due: 4),
+            scheduled("분기 보고서 제출", .work, est: 2, start: nil, due: -1),
+            scheduled("발표 자료 만들기", .work, est: 4, start: nil, due: 7),
+            scheduled("정보처리기사 실기", .study, est: 20, start: 5, due: 34),
+        ]
+        for i in s.todos.indices where s.todos[i].isDone { s.todos[i].completedAt = Date() }
         s.selectedTodoID = s.todos[0].id
         s.session = 2
         s.remaining = 18 * 60 + 42
