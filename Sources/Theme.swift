@@ -60,6 +60,29 @@ extension TimerMode {
     }
 }
 
+extension Project {
+    var color: Color {
+        switch self {
+        case .work: return .term.tagWork
+        case .personal: return .term.tagPersonal
+        case .study: return .term.tagStudy
+        }
+    }
+}
+
+extension LogEntry.Kind {
+    var color: Color {
+        switch self {
+        case .plain: return .term.text
+        case .info, .echo: return .term.dim
+        case .success: return .term.accentFocus
+        case .warn: return .term.accentBreak
+        case .error: return .term.error
+        case .add: return .term.tagWork
+        }
+    }
+}
+
 // MARK: - Fonts
 
 enum TermWeight {

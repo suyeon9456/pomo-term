@@ -21,6 +21,7 @@ final class AppStore: ObservableObject {
     private var timer: Timer?
     private var endDate: Date?
     private var loading = false
+    private let persistent: Bool
 
     private static let logLimit = 6
 
@@ -31,8 +32,10 @@ final class AppStore: ObservableObject {
         return dir.appendingPathComponent("data.json")
     }
 
-    init() {
-        load()
+    /// persistent가 false면 data.json을 읽거나 쓰지 않음 (스냅샷용)
+    init(persistent: Bool = true) {
+        self.persistent = persistent
+        if persistent { load() }
         remaining = duration(for: mode)
         addLog("pomo v1.0 · help 를 입력하면 명령어를 볼 수 있어요", .info)
         if Self.canNotify {
@@ -317,11 +320,39 @@ final class AppStore: ObservableObject {
     }
 
     private func save() {
-        guard !loading else { return }
+        guard persistent, !loading else { return }
         let s = SavedState(todos: todos, settings: settings, selectedTodoID: selectedTodoID,
                            todayCount: todayCount, todayFocusMinutes: todayFocusMinutes, todayDate: todayDate)
         if let data = try? JSONEncoder().encode(s) {
             try? data.write(to: Self.fileURL, options: .atomic)
         }
+    }
+
+    // MARK: - Sample data (스냅샷용)
+
+    static func sample() -> AppStore {
+        let s = AppStore(persistent: false)
+        func item(_ title: String, _ project: Project, est: Int, done: Int, completed: Bool = false) -> TodoItem {
+            var t = TodoItem(title: title, estimatedPomodoros: est, project: project)
+            t.completedPomodoros = done
+            t.isDone = completed
+            return t
+        }
+        s.todos = [
+            item("디자인 시스템 버튼 컴포넌트 정리", .work, est: 3, done: 1),
+            item("결제 페이지 API 연동 PR 리뷰", .work, est: 2, done: 0),
+            item("Next.js App Router 문서 읽기", .study, est: 2, done: 0),
+            item("주간 회고 작성", .personal, est: 1, done: 0),
+            item("스탠드업 미팅 노트 정리", .work, est: 1, done: 1, completed: true),
+            item("메일함 비우기", .personal, est: 1, done: 1, completed: true),
+        ]
+        s.selectedTodoID = s.todos[0].id
+        s.session = 2
+        s.remaining = 18 * 60 + 42
+        s.todayCount = 3
+        s.todayFocusMinutes = 75
+        s.addLog("✓ focus #1 완료 → 디자인 시스템 버튼 컴포넌트 정리 (1/3)", .success)
+        s.addLog("· short break 05:00 종료", .warn)
+        return s
     }
 }
