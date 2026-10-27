@@ -201,6 +201,12 @@ private struct TaskRow: View {
                 period.frame(width: Self.periodWidth, alignment: .leading)
             }
 
+            if let m = item.focusMinutes {
+                Text("\(m)m")
+                    .font(.term(12))
+                    .foregroundStyle(Color.term.muted)
+                    .accessibilityLabel("집중 \(m)분")
+            }
             Text("#\(item.project.rawValue)")
                 .font(.term(13))
                 .foregroundStyle(item.project.color)
@@ -242,6 +248,15 @@ private struct TaskRow: View {
         Picker("태그", selection: Binding(get: { item.project },
                                          set: { p in store.update(item) { $0.project = p } })) {
             ForEach(Project.allCases, id: \.self) { Text("#\($0.rawValue)").tag($0) }
+        }
+        Picker("집중 시간", selection: Binding(get: { item.focusMinutes },
+                                           set: { m in store.setFocusMinutes(item, m) })) {
+            Text("기본 (\(store.settings.focusMinutes)분)").tag(Int?.none)
+            Divider()
+            ForEach([15, 25, 30, 45, 50, 60, 90], id: \.self) { Text("\($0)분").tag(Int?.some($0)) }
+            if let m = item.focusMinutes, ![15, 25, 30, 45, 50, 60, 90].contains(m) {
+                Text("\(m)분").tag(Int?.some(m))
+            }
         }
         Picker("예상 뽀모도로", selection: Binding(get: { item.estimatedPomodoros },
                                              set: { n in store.update(item) { $0.estimatedPomodoros = n } })) {
@@ -419,7 +434,8 @@ private struct TimerPane: View {
             .padding(.vertical, 8)
 
             VStack(alignment: .leading, spacing: 4) {
-                infoLine("task  ", store.selectedTodo?.title ?? "(none) — focus <#> 로 선택")
+                infoLine("task  ", store.selectedTodo.map { t in t.title + (t.focusMinutes.map { "  [\($0)m]" } ?? "") }
+                                    ?? "(none) — focus <#> 로 선택")
                 infoLine("next  ", store.nextText)
                 HStack(spacing: 0) {
                     Text("cycle ").foregroundStyle(Color.term.muted)
@@ -452,8 +468,8 @@ private struct TimerPane: View {
                 Text("start · pause · reset · skip")
                 Text("add <할 일> [M/D~M/D] · done <#> · focus <#>")
                 Text("ls today|sched · due <#> <M/D~M/D> (해제 -)")
-                Text("mode <m> · set <m> <분> · mini · clear")
-                Text("help   (m: focus|short|long)")
+                Text("mode <m> · set <m> <분> · time <#> <분>")
+                Text("mini · clear · help   (m: focus|short|long)")
             }
             .font(.term(12))
             .foregroundStyle(Color.term.dim)

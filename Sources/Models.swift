@@ -18,6 +18,8 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var dueDate: Date?
     /// 완료한 날이 지나면 목록에서 숨기기 위해 기록
     var completedAt: Date?
+    /// 이 할 일만의 집중 시간(분). nil이면 기본 집중 시간
+    var focusMinutes: Int?
     var createdAt = Date()
 
     var isScheduled: Bool { dueDate != nil }
@@ -40,6 +42,7 @@ struct TodoItem: Identifiable, Codable, Equatable {
         startDate = try c.decodeIfPresent(Date.self, forKey: .startDate)
         dueDate = try c.decodeIfPresent(Date.self, forKey: .dueDate)
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        focusMinutes = try c.decodeIfPresent(Int.self, forKey: .focusMinutes)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 }

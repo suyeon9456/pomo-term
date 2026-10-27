@@ -5,7 +5,13 @@ import UserNotifications
 final class AppStore: ObservableObject {
     @Published var todos: [TodoItem] = [] { didSet { save() } }
     @Published var settings = AppSettings() { didSet { settingsChanged() } }
-    @Published var selectedTodoID: UUID? { didSet { save() } }
+    @Published var selectedTodoID: UUID? {
+        didSet {
+            save()
+            // 할 일마다 집중 시간이 다를 수 있으므로 시작 전 타이머는 새 할 일 기준으로
+            if oldValue != selectedTodoID { refreshIdleTimer() }
+        }
+    }
     @Published var todayCount = 0 { didSet { save() } }
     @Published var todayFocusMinutes = 0 { didSet { save() } }
 
@@ -185,9 +191,10 @@ final class AppStore: ObservableObject {
         refreshIdleTimer()
     }
 
+    /// focus는 현재 할 일의 집중 시간이 있으면 그 값
     private func minutes(for mode: TimerMode, in s: AppSettings) -> Int {
         switch mode {
-        case .focus: return s.focusMinutes
+        case .focus: return selectedTodo?.focusMinutes ?? s.focusMinutes
         case .shortBreak: return s.shortBreakMinutes
         case .longBreak: return s.longBreakMinutes
         }
@@ -250,14 +257,31 @@ final class AppStore: ObservableObject {
         addLog("· \(mode.key) \(m)m 으로 설정", .info)
     }
 
-    /// −/+ 버튼: 지금 모드의 시간을 한 단위씩 조절
+    /// −/+ 버튼: 지금 모드의 시간을 한 단위씩 조절.
+    /// 현재 할 일에 집중 시간이 따로 있으면 그 할 일의 시간을 조절
     func adjustCurrentMinutes(by steps: Int) {
         let current = minutes(for: mode, in: settings)
         let step = Self.minuteStep(for: mode)
         // 25 → 30처럼 단위에 맞춰 이동 (27에서 +5면 30)
         let next = steps > 0 ? (current / step + 1) * step : ((current + step - 1) / step - 1) * step
-        setMinutes(next, for: mode)
+        if mode == .focus, let task = selectedTodo, task.focusMinutes != nil {
+            setFocusMinutes(task, next)
+        } else {
+            setMinutes(next, for: mode)
+        }
     }
+
+    /// 할 일별 집중 시간. nil이면 기본 집중 시간으로
+    func setFocusMinutes(_ item: TodoItem, _ minutes: Int?) {
+        let range = Self.minuteRange(for: .focus)
+        let m = minutes.map { min(max($0, range.lowerBound), range.upperBound) }
+        update(item) { $0.focusMinutes = m }
+        refreshIdleTimer()
+        addLog("· time \(item.title)  \(m.map { "\($0)m" } ?? "기본(\(settings.focusMinutes)m)")", .info)
+    }
+
+    /// 현재 할 일에 집중 시간이 따로 정해져 있는지
+    var usesTaskFocusMinutes: Bool { selectedTodo?.focusMinutes != nil }
 
     func tabLabel(for mode: TimerMode) -> String { "\(mode.key) \(minutes(for: mode, in: settings))m" }
 
@@ -359,7 +383,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -416,6 +440,14 @@ final class AppStore: ObservableObject {
             case "long": switchMode(.longBreak)
             default: fail("usage: mode focus|short|long")
             }
+        case "time", "t":
+            let num = parts.count > 1 ? Int(parts[1]) : nil
+            guard let num, list.indices.contains(num - 1), parts.count == 3 else {
+                fail("usage: time <#> <분>   (기본으로: time <#> -)"); break
+            }
+            if parts[2] == "-" { setFocusMinutes(list[num - 1], nil) }
+            else if let n = Int(parts[2]), Self.minuteRange(for: .focus).contains(n) { setFocusMinutes(list[num - 1], n) }
+            else { fail("집중 시간은 1~120분") }
         case "set":
             let modes: [String: TimerMode] = ["focus": .focus, "short": .shortBreak, "long": .longBreak]
             if parts.count == 3, let m = modes[parts[1].lowercased()], let n = Int(parts[2]),
@@ -496,6 +528,7 @@ final class AppStore: ObservableObject {
             scheduled("정보처리기사 실기", .study, est: 20, start: 5, due: 34),
         ]
         for i in s.todos.indices where s.todos[i].isDone { s.todos[i].completedAt = Date() }
+        s.todos[1].focusMinutes = 50
         s.selectedTodoID = s.todos[0].id
         s.session = 2
         s.remaining = 18 * 60 + 42
