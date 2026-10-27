@@ -1,0 +1,36 @@
+#!/bin/zsh
+# PomodoroTodo.app 빌드 스크립트 (Xcode 없이 swiftc로 직접 빌드)
+set -e
+cd "$(dirname "$0")"
+
+DEV=/Applications/Xcode.app/Contents/Developer
+SWIFTC=$DEV/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc
+SDK=$DEV/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+APP=build/PomodoroTodo.app
+
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+"$SWIFTC" -O -swift-version 5 -sdk "$SDK" -target arm64-apple-macos14.0 \
+  -parse-as-library Sources/*.swift -o "$APP/Contents/MacOS/PomodoroTodo"
+
+cat > "$APP/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>PomodoroTodo</string>
+  <key>CFBundleDisplayName</key><string>뽀모도로 할 일</string>
+  <key>CFBundleIdentifier</key><string>com.local.pomodorotodo</string>
+  <key>CFBundleExecutable</key><string>PomodoroTodo</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+EOF
+
+codesign --force --sign - "$APP"
+echo "✅ 빌드 완료: $PWD/$APP"
