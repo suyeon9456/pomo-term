@@ -14,6 +14,9 @@ final class AppStore: ObservableObject {
     }
     @Published var todayCount = 0 { didSet { save() } }
     @Published var todayFocusMinutes = 0 { didSet { save() } }
+    /// 끝까지 마친 휴식만 기록 (건너뛴 휴식은 제외)
+    @Published var todayBreakCount = 0 { didSet { save() } }
+    @Published var todayBreakMinutes = 0 { didSet { save() } }
 
     @Published private(set) var mode: TimerMode = .focus
     @Published private(set) var remaining: Int = 25 * 60
@@ -154,9 +157,16 @@ final class AppStore: ObservableObject {
             mode = session % cycleLength == 0 ? .longBreak : .shortBreak
             if !completed { addLog("» focus 건너뜀 → \(mode.key) break", .info) }
         } else {
+            if completed {
+                rollDayIfNeeded()
+                todayBreakCount += 1
+                todayBreakMinutes += totalSeconds / 60
+                addLog("· \(finished.key) break \(totalSeconds / 60)m 완료 · 오늘 휴식 \(breakTimeText)", .warn)
+            } else {
+                addLog("» \(finished.key) break 건너뜀", .info)
+            }
             mode = .focus
             session = session % cycleLength + 1
-            addLog("· break 종료, 다음 focus 준비", .warn)
         }
         loadFullDuration()
         if completed {
@@ -182,6 +192,8 @@ final class AppStore: ObservableObject {
             todayDate = Date()
             todayCount = 0
             todayFocusMinutes = 0
+            todayBreakCount = 0
+            todayBreakMinutes = 0
         }
     }
 
@@ -308,9 +320,12 @@ final class AppStore: ObservableObject {
         return "\(next.key) break \(minutes(for: next, in: settings))m"
     }
 
-    var focusTimeText: String {
-        let m = todayFocusMinutes
-        return (m >= 60 ? "\(m / 60)h " : "") + "\(m % 60)m"
+    var focusTimeText: String { Self.durationText(todayFocusMinutes) }
+    /// 2회 · 10m
+    var breakTimeText: String { "\(todayBreakCount)회 · \(Self.durationText(todayBreakMinutes))" }
+
+    static func durationText(_ minutes: Int) -> String {
+        (minutes >= 60 ? "\(minutes / 60)h " : "") + "\(minutes % 60)m"
     }
 
     /// ●●○ 형태. 6개를 넘으면 칸이 밀리지 않게 ●3/20 처럼 숫자로
@@ -483,12 +498,15 @@ final class AppStore: ObservableObject {
         todayCount = isToday ? s.todayCount : 0
         // 예전 버전은 집중 시간을 따로 저장하지 않았으므로 개수 × 집중 시간으로 추정
         todayFocusMinutes = !isToday ? 0 : s.todayFocusMinutes > 0 ? s.todayFocusMinutes : s.todayCount * s.settings.focusMinutes
+        todayBreakCount = isToday ? s.todayBreakCount : 0
+        todayBreakMinutes = isToday ? s.todayBreakMinutes : 0
     }
 
     private func save() {
         guard persistent, !loading else { return }
         let s = SavedState(todos: todos, settings: settings, selectedTodoID: selectedTodoID,
-                           todayCount: todayCount, todayFocusMinutes: todayFocusMinutes, todayDate: todayDate)
+                           todayCount: todayCount, todayFocusMinutes: todayFocusMinutes,
+                           todayBreakCount: todayBreakCount, todayBreakMinutes: todayBreakMinutes, todayDate: todayDate)
         if let data = try? JSONEncoder().encode(s) {
             try? data.write(to: Self.fileURL, options: .atomic)
         }
@@ -534,6 +552,8 @@ final class AppStore: ObservableObject {
         s.remaining = 18 * 60 + 42
         s.todayCount = 3
         s.todayFocusMinutes = 75
+        s.todayBreakCount = 2
+        s.todayBreakMinutes = 10
         s.addLog("✓ focus #1 완료 → 디자인 시스템 버튼 컴포넌트 정리 (1/3)", .success)
         s.addLog("· short break 05:00 종료", .warn)
         return s

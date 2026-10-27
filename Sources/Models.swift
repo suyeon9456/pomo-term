@@ -113,15 +113,19 @@ struct SavedState: Codable {
     var selectedTodoID: UUID?
     var todayCount = 0
     var todayFocusMinutes = 0
+    var todayBreakCount = 0
+    var todayBreakMinutes = 0
     var todayDate = Date()
 
     init(todos: [TodoItem], settings: AppSettings, selectedTodoID: UUID?,
-         todayCount: Int, todayFocusMinutes: Int, todayDate: Date) {
+         todayCount: Int, todayFocusMinutes: Int, todayBreakCount: Int, todayBreakMinutes: Int, todayDate: Date) {
         self.todos = todos
         self.settings = settings
         self.selectedTodoID = selectedTodoID
         self.todayCount = todayCount
         self.todayFocusMinutes = todayFocusMinutes
+        self.todayBreakCount = todayBreakCount
+        self.todayBreakMinutes = todayBreakMinutes
         self.todayDate = todayDate
     }
 
@@ -132,6 +136,8 @@ struct SavedState: Codable {
         selectedTodoID = try c.decodeIfPresent(UUID.self, forKey: .selectedTodoID)
         todayCount = try c.decodeIfPresent(Int.self, forKey: .todayCount) ?? 0
         todayFocusMinutes = try c.decodeIfPresent(Int.self, forKey: .todayFocusMinutes) ?? 0
+        todayBreakCount = try c.decodeIfPresent(Int.self, forKey: .todayBreakCount) ?? 0
+        todayBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .todayBreakMinutes) ?? 0
         todayDate = try c.decodeIfPresent(Date.self, forKey: .todayDate) ?? Date()
     }
 }

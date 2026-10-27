@@ -169,7 +169,10 @@ struct MenuBarPopover: View {
 
     private var footer: some View {
         HStack {
-            Text("today: \(store.todayCount) pomo · \(store.focusTimeText)")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("today: \(store.todayCount) pomo · \(store.focusTimeText)")
+                Text("break: \(store.todayBreakCount) · \(AppStore.durationText(store.todayBreakMinutes))")
+            }
             Spacer()
             if store.settings.globalHotKey { Text(GlobalHotKey.displayName) }
             Button { store.toggleMiniTimer?() } label: {

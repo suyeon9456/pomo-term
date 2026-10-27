@@ -577,6 +577,7 @@ private struct StatusBar: View {
             cell("⎇ \(store.listTab.rawValue)", fg: .term.dim, weight: .medium)
             Spacer(minLength: 0)
             cell("\(store.todayCount) pomo · \(store.focusTimeText)", fg: .term.dim, weight: .medium)
+            cell("\(store.todayBreakCount) break · \(AppStore.durationText(store.todayBreakMinutes))", fg: .term.accentBreak, weight: .medium)
             cell(Self.dateText, fg: .term.bright, bg: .term.border)
         }
         .font(.term(12, .bold))
