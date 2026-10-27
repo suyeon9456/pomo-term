@@ -35,6 +35,14 @@ enum Snapshot {
         .padding(8)
         .background(Color(hex: 0x141717))
         render(pills, size: CGSize(width: 320, height: 40), to: dir.appendingPathComponent("menubar-label.png"))
+
+        let minis = VStack(spacing: 12) {
+            MiniTimerView().environmentObject(store)
+            MiniTimerView().environmentObject(breakStore)
+        }
+        .padding(20)
+        .background(Color(hex: 0x262B2A))
+        render(minis, size: CGSize(width: 360, height: 244), to: dir.appendingPathComponent("mini.png"))
     }
 
     static func render<V: View>(_ view: V, size: CGSize, to url: URL) {

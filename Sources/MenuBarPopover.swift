@@ -4,10 +4,18 @@ import SwiftUI
 /// MenuBarExtra는 라벨의 텍스트 색을 지우므로 컬러 이미지(템플릿 아님)로 렌더링해서 넣음
 struct MenuBarLabel: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Image(nsImage: Self.image(time: store.timeString, mode: store.mode, running: store.isRunning))
             .accessibilityLabel("pomo \(store.mode.key) \(store.timeString)")
+            .onAppear {
+                // 메뉴 막대 라벨은 항상 살아 있으므로 여기서 openWindow를 스토어에 연결
+                store.openMainWindow = {
+                    openWindow(id: "main")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
     }
 
     @MainActor
@@ -39,7 +47,6 @@ struct MenuBarPill: View {
 /// 메뉴 막대 팝오버 (reference/TermMenuBar.dc.html)
 struct MenuBarPopover: View {
     @EnvironmentObject var store: AppStore
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -109,10 +116,7 @@ struct MenuBarPopover: View {
             .buttonStyle(.plain)
             .accessibilityLabel(store.isRunning ? "일시정지" : "시작")
             popoverButton("» skip", label: "건너뛰기", action: store.skip)
-            popoverButton("↗ open", label: "메인 창 열기") {
-                openWindow(id: "main")
-                NSApp.activate(ignoringOtherApps: true)
-            }
+            popoverButton("↗ open", label: "메인 창 열기") { store.openMainWindow?() }
         }
     }
 
@@ -167,6 +171,11 @@ struct MenuBarPopover: View {
         HStack {
             Text("today: \(store.todayCount) pomo · \(store.focusTimeText)")
             Spacer()
+            Button { store.toggleMiniTimer?() } label: {
+                Text("▣ mini").foregroundStyle(Color.term.dim).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("미니 타이머 열기/닫기")
         }
         .font(.term(11))
         .foregroundStyle(Color.term.dim)

@@ -306,7 +306,7 @@ private struct TimerPane: View {
                 Text("commands").font(.term(12, .bold)).foregroundStyle(Color.term.text)
                 Text("start · pause · reset · skip")
                 Text("add <할 일> · done <#> · focus <#>")
-                Text("mode focus|short|long · clear · help")
+                Text("mode focus|short|long · mini · clear · help")
             }
             .font(.term(12))
             .foregroundStyle(Color.term.dim)

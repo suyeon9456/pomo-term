@@ -12,7 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct PomodoroTodoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var store = AppStore(persistent: Snapshot.outputDirectory == nil)
+    @StateObject private var store: AppStore
+
+    init() {
+        let store = AppStore(persistent: Snapshot.outputDirectory == nil)
+        store.toggleMiniTimer = { MiniTimerController.shared.toggle(store: store) }
+        _store = StateObject(wrappedValue: store)
+    }
 
     var body: some Scene {
         Window("pomo", id: "main") {
@@ -20,6 +26,12 @@ struct PomodoroTodoApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 760)
+        .commands {
+            CommandGroup(after: .windowArrangement) {
+                Button("미니 타이머") { store.toggleMiniTimer?() }
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
+            }
+        }
 
         MenuBarExtra {
             MenuBarPopover().environmentObject(store)

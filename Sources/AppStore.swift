@@ -17,6 +17,10 @@ final class AppStore: ObservableObject {
     /// 최근 6줄만 유지
     @Published private(set) var log: [LogEntry] = []
 
+    /// 화면 밖(미니 타이머, 명령어)에서 창을 열기 위한 연결 고리. 앱이 시작될 때 채워짐
+    var openMainWindow: (() -> Void)?
+    var toggleMiniTimer: (() -> Void)?
+
     private var todayDate = Date()
     private var timer: Timer?
     private var endDate: Date?
@@ -262,7 +266,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> · done <#> · focus <#> · mode <m> · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> · done <#> · focus <#> · mode <m> · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -296,6 +300,7 @@ final class AppStore: ObservableObject {
             case "long": switchMode(.longBreak)
             default: fail("usage: mode focus|short|long")
             }
+        case "mini", "m": toggleMiniTimer?()
         case "clear": log = []
         case "help": addLog(Self.helpText)
         default: fail("command not found: \(head)  (help 를 입력해보세요)")
