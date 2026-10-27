@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct PomodoroTodoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store: AppStore
+    @AppStorage(ThemeID.storageKey) private var themeID: ThemeID = .terminal
 
     init() {
         let store = AppStore(persistent: Snapshot.outputDirectory == nil)
@@ -23,7 +24,7 @@ struct PomodoroTodoApp: App {
 
     var body: some Scene {
         Window("pomo", id: "main") {
-            MainWindowView().environmentObject(store)
+            MainWindowView().environmentObject(store).environment(\.themeID, themeID)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 760)
@@ -39,14 +40,14 @@ struct PomodoroTodoApp: App {
         }
 
         MenuBarExtra {
-            MenuBarPopover().environmentObject(store)
+            MenuBarPopover().environmentObject(store).environment(\.themeID, themeID)
         } label: {
-            MenuBarLabel().environmentObject(store)
+            MenuBarLabel().environmentObject(store).environment(\.themeID, themeID)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView().environmentObject(store)
+            SettingsView().environmentObject(store).environment(\.themeID, themeID)
         }
     }
 }

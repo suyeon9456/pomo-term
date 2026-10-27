@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// 메인 창 (reference/TermMain.dc.html)
-struct MainWindowView: View {
+/// 터미널 테마 메인 창 (reference/TermMain.dc.html)
+struct TerminalMainView: View {
     @EnvironmentObject var store: AppStore
 
     private static let tasksMinWidth: CGFloat = 460
@@ -186,16 +186,7 @@ private struct InlineAddRow: View {
     private func submit() {
         let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { close(); return }
-        switch target {
-        case .top:
-            if let item = store.addTodo(title, period: store.listTab == .scheduled ? Self.defaultPeriod : nil) {
-                onAdded(item)
-            }
-        case .sub(let id):
-            if let story = store.todos.first(where: { $0.id == id }), let item = store.addSubtask(to: story, title) {
-                onAdded(item)
-            }
-        }
+        if let item = store.submitInlineAdd(target, title) { onAdded(item) }
         text = ""
         focused = true
     }
@@ -203,12 +194,6 @@ private struct InlineAddRow: View {
     private func close() {
         text = ""
         if store.inlineAdd == target { store.inlineAdd = nil }
-    }
-
-    /// scheduled 탭에서 추가할 때의 임시 기간 (오늘부터 일주일). 바로 뜨는 기간 설정 창에서 바꿈
-    private static var defaultPeriod: (start: Date?, due: Date) {
-        let today = Period.startOfDay(Date())
-        return (nil, Calendar.current.date(byAdding: .day, value: 7, to: today) ?? today)
     }
 }
 
@@ -284,7 +269,7 @@ private struct TaskRow: View {
                 .foregroundStyle(Color.term.muted)
                 .frame(width: Self.numberWidth, alignment: .trailing)
 
-            Button(action: toggleDone) {
+            Button { store.requestToggleDone(item, confirm: $confirmingDone) } label: {
                 Text(item.isDone ? "[x]" : "[ ]")
                     .font(.term(14, .bold))
                     .foregroundStyle(item.isDone ? Color.term.accentFocus : Color.term.text)
@@ -293,13 +278,7 @@ private struct TaskRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.isDone ? "\(item.title) 완료 취소" : "\(item.title) 완료로 표시")
-            .confirmationDialog("열린 태스크 \(store.openChildrenCount(item))개가 있어요", isPresented: $confirmingDone) {
-                Button("태스크까지 모두 완료") { store.toggleDone(item, includeTasks: true) }
-                Button("스토리만 완료") { store.toggleDone(item) }
-                Button("취소", role: .cancel) {}
-            } message: {
-                Text("\(item.title)을(를) 완료로 표시할까요?")
-            }
+            .storyCompletionDialog(item, isPresented: $confirmingDone, store: store)
 
             // 스토리 접기/펼치기 자리. 하위 태스크가 없으면 빈칸으로 제목 줄을 맞춤
             Button { store.setCollapsed(item, !item.isCollapsed) } label: {
@@ -321,6 +300,10 @@ private struct TaskRow: View {
                         Text(row.isLastChild ? "└ " : "├ ").foregroundStyle(Color.term.muted)
                     }
                     RenameField(item: item)
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 4)
+                        .frame(height: 28)
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.term.accentFocus))
                 }
                 .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
             } else {
@@ -424,126 +407,10 @@ private struct TaskRow: View {
         }
     }
 
-    @ViewBuilder private var menu: some View {
-        if !item.isDone { Button("집중하기") { store.select(item) } }
-        Button(item.isDone ? "미완료로 되돌리기" : "완료", action: toggleDone)
-        Button("제목 수정") { store.beginRename(item) }
-        Divider()
-        if row.depth == 0 && !item.isDone {
-            Button("하위 태스크 추가…") { store.beginAdd(.sub(item.id)) }
-        }
-        if isStory {
-            Button(item.isCollapsed ? "펼치기" : "접기") { store.setCollapsed(item, !item.isCollapsed) }
-        }
-        Divider()
-        Button(item.isScheduled ? "기간 변경…" : "기간 설정…", action: onEditPeriod)
-        if item.isScheduled { Button("기간 해제 (오늘 할 일로)") { store.setPeriod(item, start: nil, due: nil) } }
-        Picker("태그", selection: Binding(get: { item.project },
-                                         set: { p in store.setProject(item, p) })) {
-            ForEach(Project.allCases, id: \.self) { Text("#\($0.rawValue)").tag($0) }
-        }
-        Picker("집중 시간", selection: Binding(get: { item.focusMinutes },
-                                           set: { m in store.setFocusMinutes(item, m) })) {
-            Text("기본 (\(store.settings.focusMinutes)분)").tag(Int?.none)
-            Divider()
-            ForEach([15, 25, 30, 45, 50, 60, 90], id: \.self) { Text("\($0)분").tag(Int?.some($0)) }
-            if let m = item.focusMinutes, ![15, 25, 30, 45, 50, 60, 90].contains(m) {
-                Text("\(m)분").tag(Int?.some(m))
-            }
-        }
-        Picker("예상 뽀모도로", selection: Binding(get: { item.estimatedPomodoros },
-                                             set: { n in store.update(item) { $0.estimatedPomodoros = n } })) {
-            ForEach(1...8, id: \.self) { Text("\($0)").tag($0) }
-        }
-        Divider()
-        let kids = store.children(of: item).count
-        Button(kids > 0 ? "삭제 (태스크 \(kids)개 포함)" : "삭제", role: .destructive) { store.delete(item) }
-    }
-
-    /// 열린 태스크가 있는 스토리를 완료할 때는 태스크도 함께 완료할지 물어봄
-    private func toggleDone() {
-        if !item.isDone && store.openChildrenCount(item) > 0 {
-            confirmingDone = true
-        } else {
-            store.toggleDone(item)
-        }
-    }
-}
-
-/// 우클릭 → 기간 설정… 에서 여는 시트
-struct PeriodEditor: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-    let item: TodoItem
-
-    @State private var hasStart: Bool
-    @State private var start: Date
-    @State private var due: Date
-
-    init(item: TodoItem) {
-        self.item = item
-        let today = Period.startOfDay(Date())
-        _hasStart = State(initialValue: item.startDate != nil)
-        _start = State(initialValue: item.startDate ?? today)
-        _due = State(initialValue: item.dueDate ?? Calendar.current.date(byAdding: .day, value: 7, to: today) ?? today)
-    }
-
-    private var isValid: Bool { !hasStart || Period.startOfDay(start) <= Period.startOfDay(due) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("── period ───────").font(.term(13, .bold)).foregroundStyle(Color.term.accentFocus)
-            Text(item.title).foregroundStyle(Color.term.bright).lineLimit(2)
-
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-                GridRow {
-                    Toggle("start", isOn: $hasStart).toggleStyle(.checkbox)
-                    DatePicker("", selection: $start, displayedComponents: .date).labelsHidden().disabled(!hasStart)
-                }
-                GridRow {
-                    Text("due").foregroundStyle(Color.term.dim)
-                    DatePicker("", selection: $due, displayedComponents: .date).labelsHidden()
-                }
-            }
-
-            Text(isValid ? "\(Period.text(start: hasStart ? start : nil, due: due))  \(Period.ddayText(until: due))"
-                         : "✗ 시작일이 마감일보다 늦어요")
-                .font(.term(12))
-                .foregroundStyle(isValid ? Color.term.dim : Color.term.error)
-
-            HStack(spacing: 8) {
-                if item.isScheduled {
-                    OutlineButton(title: "기간 해제", label: "기간 해제", height: 36, fontSize: 13) {
-                        store.setPeriod(item, start: nil, due: nil)
-                        dismiss()
-                    }
-                }
-                Spacer()
-                OutlineButton(title: "취소", label: "취소", height: 36, fontSize: 13) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button {
-                    store.setPeriod(item, start: hasStart ? start : nil, due: due)
-                    dismiss()
-                } label: {
-                    Text("저장")
-                        .font(.term(13, .extraBold))
-                        .foregroundStyle(Color.term.window)
-                        .padding(.horizontal, 18)
-                        .frame(height: 36)
-                        .background(isValid ? Color.term.accentFocus : Color.term.muted, in: RoundedRectangle(cornerRadius: 4))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(!isValid)
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .font(.term(13))
-        .foregroundStyle(Color.term.text)
-        .padding(22)
-        .frame(width: 400)
-        .background(Color.term.window)
-        .preferredColorScheme(.dark)
+    private var menu: some View {
+        TaskMenuItems(item: item, depth: row.depth,
+                      onToggleDone: { store.requestToggleDone(item, confirm: $confirmingDone) },
+                      onEditPeriod: onEditPeriod)
     }
 }
 
@@ -718,46 +585,6 @@ struct OutlineButton: View {
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel(label)
     }
-}
-
-/// 제목을 그 자리에서 고치는 입력칸. Enter나 다른 곳을 누르면 저장, Esc는 취소
-private struct RenameField: View {
-    @EnvironmentObject var store: AppStore
-    let item: TodoItem
-    @State private var text: String
-    @FocusState private var focused: Bool
-
-    init(item: TodoItem) {
-        self.item = item
-        _text = State(initialValue: item.title)
-    }
-
-    var body: some View {
-        TextField("", text: $text)
-            .textFieldStyle(.plain)
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 4)
-            .frame(height: 28)
-            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.term.accentFocus))
-            .focused($focused)
-            .onSubmit(save)
-            .onExitCommand { store.renamingID = nil }
-            .onAppear { DispatchQueue.main.async { focused = true } }
-            .onChange(of: focused) { isFocused in
-                if !isFocused && store.renamingID == item.id { save() }
-            }
-            .accessibilityLabel("\(item.title) 제목 수정")
-    }
-
-    private func save() {
-        store.rename(item, text)
-        store.renamingID = nil
-    }
-}
-
-/// 스냅샷에서 마우스 오버 버튼을 확인하기 위한 스위치
-enum TaskRowDebug {
-    static var alwaysShowActions = false
 }
 
 /// 행에 마우스를 올리면 나타나는 작은 버튼

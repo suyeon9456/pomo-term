@@ -12,7 +12,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 "$SWIFTC" -O -swift-version 5 -sdk "$SDK" -target arm64-apple-macos14.0 \
-  -parse-as-library Sources/*.swift -o "$APP/Contents/MacOS/PomodoroTodo"
+  -parse-as-library Sources/**/*.swift -o "$APP/Contents/MacOS/PomodoroTodo"
 
 if [ -d Resources ]; then cp -R Resources/ "$APP/Contents/Resources/"; fi
 

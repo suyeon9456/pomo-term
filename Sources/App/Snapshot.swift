@@ -46,9 +46,9 @@ enum Snapshot {
         render(MenuBarPopover().environmentObject(store).fixedSize(), size: CGSize(width: 320, height: 460),
                to: dir.appendingPathComponent("popover.png"))
         let pills = HStack(spacing: 12) {
-            Image(nsImage: MenuBarLabel.image(time: "18:42", mode: .focus, running: true))
-            Image(nsImage: MenuBarLabel.image(time: "05:00", mode: .shortBreak, running: true))
-            Image(nsImage: MenuBarLabel.image(time: "25:00", mode: .focus, running: false))
+            Image(nsImage: TerminalMenuBarLabel.image(time: "18:42", mode: .focus, running: true))
+            Image(nsImage: TerminalMenuBarLabel.image(time: "05:00", mode: .shortBreak, running: true))
+            Image(nsImage: TerminalMenuBarLabel.image(time: "25:00", mode: .focus, running: false))
         }
         .padding(8)
         .background(Color(hex: 0x141717))

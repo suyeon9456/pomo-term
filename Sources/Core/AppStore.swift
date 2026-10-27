@@ -406,6 +406,23 @@ final class AppStore: ObservableObject {
     /// 지금 열려 있는 목록 안 입력줄 (한 번에 하나만)
     @Published var inlineAdd: InlineAdd?
 
+    /// 목록 안 입력줄에서 Enter. scheduled 탭의 맨 아래 추가면 임시 기간(오늘~일주일)을 넣음
+    @discardableResult
+    func submitInlineAdd(_ target: InlineAdd, _ title: String) -> TodoItem? {
+        switch target {
+        case .top:
+            return addTodo(title, period: listTab == .scheduled ? Self.defaultSchedulePeriod : nil)
+        case .sub(let id):
+            guard let story = todos.first(where: { $0.id == id }) else { return nil }
+            return addSubtask(to: story, title)
+        }
+    }
+
+    static var defaultSchedulePeriod: (start: Date?, due: Date) {
+        let today = Period.startOfDay(Date())
+        return (nil, Calendar.current.date(byAdding: .day, value: 7, to: today) ?? today)
+    }
+
     func beginAdd(_ target: InlineAdd) {
         if case .sub(let id) = target, let story = todos.first(where: { $0.id == id }) {
             setCollapsed(story, false)
