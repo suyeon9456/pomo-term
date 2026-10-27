@@ -171,7 +171,8 @@ final class AppStore: ObservableObject {
         loadFullDuration()
         if completed {
             notify(finished: finished)
-            if settings.autoStartNext { start() }
+            // 집중이 끝나 휴식으로 넘어왔으면 autoStartBreak, 휴식이 끝나 집중으로 넘어왔으면 autoStartFocus
+            if mode == .focus ? settings.autoStartFocus : settings.autoStartBreak { start() }
         }
     }
 
@@ -361,7 +362,7 @@ final class AppStore: ObservableObject {
     var nextText: String {
         guard mode == .focus else { return tabLabel(for: .focus) }
         let next: TimerMode = session % cycleLength == 0 ? .longBreak : .shortBreak
-        return "\(next.key) break \(minutes(for: next, in: settings))m"
+        return "\(next.key) break \(minutes(for: next, in: settings))m" + (settings.autoStartBreak ? " (auto)" : "")
     }
 
     var focusTimeText: String { Self.durationText(todayFocusMinutes) }

@@ -105,11 +105,20 @@ struct LogEntry: Identifiable {
 }
 
 struct AppSettings: Codable, Equatable {
+    private enum CodingKeys: String, CodingKey {
+        case focusMinutes, shortBreakMinutes, longBreakMinutes, longBreakInterval
+        case autoStartBreak, autoStartFocus, playSound, globalHotKey
+        case autoStartNext // 예전 버전 키 (읽기만)
+    }
+
     var focusMinutes = 25
     var shortBreakMinutes = 5
     var longBreakMinutes = 15
     var longBreakInterval = 4
-    var autoStartNext = false
+    /// 집중을 끝까지 마치면 휴식을 자동으로 시작
+    var autoStartBreak = true
+    /// 휴식을 끝까지 마치면 집중을 자동으로 시작
+    var autoStartFocus = false
     var playSound = true
     var globalHotKey = true
 
@@ -123,9 +132,24 @@ struct AppSettings: Codable, Equatable {
         shortBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .shortBreakMinutes) ?? d.shortBreakMinutes
         longBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .longBreakMinutes) ?? d.longBreakMinutes
         longBreakInterval = try c.decodeIfPresent(Int.self, forKey: .longBreakInterval) ?? d.longBreakInterval
-        autoStartNext = try c.decodeIfPresent(Bool.self, forKey: .autoStartNext) ?? d.autoStartNext
+        autoStartBreak = try c.decodeIfPresent(Bool.self, forKey: .autoStartBreak) ?? d.autoStartBreak
+        // 예전 '다음 타이머 자동 시작'(autoStartNext)은 휴식 → 집중 자동 시작으로 이어받음
+        autoStartFocus = try c.decodeIfPresent(Bool.self, forKey: .autoStartFocus)
+            ?? c.decodeIfPresent(Bool.self, forKey: .autoStartNext) ?? d.autoStartFocus
         playSound = try c.decodeIfPresent(Bool.self, forKey: .playSound) ?? d.playSound
         globalHotKey = try c.decodeIfPresent(Bool.self, forKey: .globalHotKey) ?? d.globalHotKey
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(focusMinutes, forKey: .focusMinutes)
+        try c.encode(shortBreakMinutes, forKey: .shortBreakMinutes)
+        try c.encode(longBreakMinutes, forKey: .longBreakMinutes)
+        try c.encode(longBreakInterval, forKey: .longBreakInterval)
+        try c.encode(autoStartBreak, forKey: .autoStartBreak)
+        try c.encode(autoStartFocus, forKey: .autoStartFocus)
+        try c.encode(playSound, forKey: .playSound)
+        try c.encode(globalHotKey, forKey: .globalHotKey)
     }
 }
 
