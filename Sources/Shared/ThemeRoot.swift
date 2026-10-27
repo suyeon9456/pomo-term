@@ -100,7 +100,8 @@ struct MiniTimerView: View {
 
     var body: some View {
         switch themeID {
-        case .terminal, .cute: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .terminal: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .cute: CuteMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
         }
     }
 }

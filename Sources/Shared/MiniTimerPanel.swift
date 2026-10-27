@@ -57,7 +57,10 @@ final class MiniTimerController {
             onClose: { [weak self] in self?.close() }
         )
         .environmentObject(store)
-        panel.contentView = NSHostingView(rootView: view)
+        // 테마마다 크기가 달라서 내용 크기에 맞춰 패널 크기를 바꿈
+        let controller = NSHostingController(rootView: view)
+        controller.sizingOptions = .preferredContentSize
+        panel.contentViewController = controller
 
         // 처음엔 화면 오른쪽 위, 이후엔 마지막 위치 기억
         if !panel.setFrameUsingName("MiniTimer"), let screen = NSScreen.main?.visibleFrame {

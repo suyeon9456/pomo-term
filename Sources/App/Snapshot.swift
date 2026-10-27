@@ -58,6 +58,14 @@ enum Snapshot {
         }
         render(cutePills, size: CGSize(width: 320, height: 90), to: dir.appendingPathComponent("cute-menubar-label.png"))
 
+        let cuteMinis = VStack(spacing: 16) {
+            MiniTimerView().environmentObject(store)
+            MiniTimerView().environmentObject(cuteBreak)
+        }
+        .padding(20)
+        .background(Color(hex: 0xFCE3D6))
+        render(cute(AnyView(cuteMinis)), size: CGSize(width: 360, height: 270), to: dir.appendingPathComponent("cute-mini.png"))
+
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
