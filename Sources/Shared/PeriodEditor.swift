@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// 우클릭 → 기간 설정… 에서 여는 시트
+/// 우클릭 → 기간 설정… 에서 여는 시트. 동작은 같고 모양만 테마를 따름
 struct PeriodEditor: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.themeID) private var themeID
     let item: TodoItem
 
     @State private var hasStart: Bool
@@ -19,60 +20,80 @@ struct PeriodEditor: View {
     }
 
     private var isValid: Bool { !hasStart || Period.startOfDay(start) <= Period.startOfDay(due) }
+    private var isCute: Bool { themeID == .cute }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("── period ───────").font(.term(13, .bold)).foregroundStyle(Color.term.accentFocus)
-            Text(item.title).foregroundStyle(Color.term.bright).lineLimit(2)
+            if isCute {
+                Text("기간 정하기").font(.system(size: 18, weight: .bold)).foregroundStyle(Color.cute.ink)
+            } else {
+                Text("── period ───────").font(.term(13, .bold)).foregroundStyle(Color.term.accentFocus)
+            }
+            Text(item.title).foregroundStyle(isCute ? Color.cute.ink : Color.term.bright).lineLimit(2)
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
-                    Toggle("start", isOn: $hasStart).toggleStyle(.checkbox)
+                    Toggle(isCute ? "시작일" : "start", isOn: $hasStart).toggleStyle(.checkbox)
                     DatePicker("", selection: $start, displayedComponents: .date).labelsHidden().disabled(!hasStart)
                 }
                 GridRow {
-                    Text("due").foregroundStyle(Color.term.dim)
+                    Text(isCute ? "마감일" : "due").foregroundStyle(isCute ? Color.cute.inkSecondary : Color.term.dim)
                     DatePicker("", selection: $due, displayedComponents: .date).labelsHidden()
                 }
             }
 
             Text(isValid ? "\(Period.text(start: hasStart ? start : nil, due: due))  \(Period.ddayText(until: due))"
-                         : "✗ 시작일이 마감일보다 늦어요")
-                .font(.term(12))
-                .foregroundStyle(isValid ? Color.term.dim : Color.term.error)
+                         : (isCute ? "시작일이 마감일보다 늦어요" : "✗ 시작일이 마감일보다 늦어요"))
+                .font(isCute ? .system(size: 13, weight: .semibold) : .term(12))
+                .foregroundStyle(isValid ? (isCute ? Color.cute.inkSecondary : Color.term.dim)
+                                         : (isCute ? Color.cute.link : Color.term.error))
 
             HStack(spacing: 8) {
                 if item.isScheduled {
-                    OutlineButton(title: "기간 해제", label: "기간 해제", height: 36, fontSize: 13) {
+                    button("기간 해제", primary: false) {
                         store.setPeriod(item, start: nil, due: nil)
                         dismiss()
                     }
                 }
                 Spacer()
-                OutlineButton(title: "취소", label: "취소", height: 36, fontSize: 13) { dismiss() }
+                button("취소", primary: false) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button {
+                button("저장", primary: true) {
                     store.setPeriod(item, start: hasStart ? start : nil, due: due)
                     dismiss()
-                } label: {
-                    Text("저장")
-                        .font(.term(13, .extraBold))
-                        .foregroundStyle(Color.term.window)
-                        .padding(.horizontal, 18)
-                        .frame(height: 36)
-                        .background(isValid ? Color.term.accentFocus : Color.term.muted, in: RoundedRectangle(cornerRadius: 4))
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
                 .disabled(!isValid)
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .font(.term(13))
-        .foregroundStyle(Color.term.text)
+        .font(isCute ? .system(size: 14) : .term(13))
+        .foregroundStyle(isCute ? Color.cute.ink : Color.term.text)
         .padding(22)
         .frame(width: 400)
-        .background(Color.term.window)
-        .preferredColorScheme(.dark)
+        .background(isCute ? Color.cute.window : Color.term.window)
+        .preferredColorScheme(isCute ? .light : .dark)
+    }
+
+    @ViewBuilder
+    private func button(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
+        if isCute {
+            Button(action: action) {
+                Text(title).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 16).frame(height: 36)
+            }
+            .buttonStyle(CuteButtonStyle(fill: primary ? (isValid ? .cute.butter : .cute.sidebar) : .white, radius: 12))
+        } else if primary {
+            Button(action: action) {
+                Text(title)
+                    .font(.term(13, .extraBold))
+                    .foregroundStyle(Color.term.window)
+                    .padding(.horizontal, 18)
+                    .frame(height: 36)
+                    .background(isValid ? Color.term.accentFocus : Color.term.muted, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            OutlineButton(title: title, label: title, height: 36, fontSize: 13, action: action)
+        }
     }
 }

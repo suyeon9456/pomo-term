@@ -343,6 +343,21 @@ final class AppStore: ObservableObject {
     /// 현재 할 일에 집중 시간이 따로 정해져 있는지
     var usesTaskFocusMinutes: Bool { selectedTodo?.focusMinutes != nil }
 
+    /// 모드별 지금 설정된 시간(분). focus는 현재 할 일의 집중 시간을 반영
+    func minutesSetting(for mode: TimerMode) -> Int { minutes(for: mode, in: settings) }
+
+    /// 지금 모드가 끝나면 넘어갈 모드
+    var nextMode: TimerMode {
+        guard mode == .focus else { return .focus }
+        return session % cycleLength == 0 ? .longBreak : .shortBreak
+    }
+
+    /// 목록별 남은 작업 수 (하위 태스크가 있는 스토리는 태스크로 셈). done은 완료한 스토리 수
+    func openLeafCount(_ tab: ListTab) -> Int {
+        if tab == .done { return rows(.done).filter { $0.depth == 0 }.count }
+        return rows(tab).filter { !$0.item.isDone && !hasChildren($0.item) }.count
+    }
+
     func tabLabel(for mode: TimerMode) -> String { "\(mode.key) \(minutes(for: mode, in: settings))m" }
 
     func asciiBar(width: Int, percent: Bool = true) -> String {

@@ -3,6 +3,7 @@ import SwiftUI
 /// 테마 선택. 로직(AppStore)은 하나이고 화면만 테마별로 다름 (theme-architecture.md)
 enum ThemeID: String, CaseIterable, Identifiable {
     case terminal
+    case cute
 
     static let storageKey = "theme"
 
@@ -11,6 +12,7 @@ enum ThemeID: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .terminal: return "터미널"
+        case .cute: return "토마토 친구"
         }
     }
 }
@@ -53,6 +55,7 @@ struct MainWindowView: View {
     var body: some View {
         switch themeID {
         case .terminal: TerminalMainView()
+        case .cute: CuteMainView()
         }
     }
 }
@@ -62,7 +65,7 @@ struct MenuBarPopover: View {
 
     var body: some View {
         switch themeID {
-        case .terminal: TerminalPopover()
+        case .terminal, .cute: TerminalPopover()
         }
     }
 }
@@ -76,7 +79,7 @@ struct MenuBarLabel: View {
     var body: some View {
         Group {
             switch themeID {
-            case .terminal: TerminalMenuBarLabel()
+            case .terminal, .cute: TerminalMenuBarLabel()
             }
         }
         .onAppear {
@@ -95,7 +98,7 @@ struct MiniTimerView: View {
 
     var body: some View {
         switch themeID {
-        case .terminal: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .terminal, .cute: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
         }
     }
 }

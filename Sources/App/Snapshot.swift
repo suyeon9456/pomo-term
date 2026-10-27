@@ -25,6 +25,24 @@ enum Snapshot {
         render(MainWindowView().environmentObject(store), size: CGSize(width: 640, height: 900),
                to: dir.appendingPathComponent("main-narrow.png"))
 
+        // 귀여운 테마 메인 창
+        let cute = { (v: AnyView) in v.environment(\.themeID, .cute) }
+        render(cute(AnyView(MainWindowView().environmentObject(store))), size: CGSize(width: 1280, height: 860),
+               to: dir.appendingPathComponent("cute-main.png"))
+        let cuteBreak = AppStore.sample()
+        cuteBreak.skip()
+        render(cute(AnyView(MainWindowView().environmentObject(cuteBreak))), size: CGSize(width: 1280, height: 860),
+               to: dir.appendingPathComponent("cute-main-break.png"))
+        let cuteSched = AppStore.sample()
+        cuteSched.listTab = .scheduled
+        if let story = cuteSched.todos.first(where: { cuteSched.hasChildren($0) }) { cuteSched.inlineAdd = .sub(story.id) }
+        TaskRowDebug.alwaysShowActions = true
+        render(cute(AnyView(MainWindowView().environmentObject(cuteSched))), size: CGSize(width: 1280, height: 860),
+               to: dir.appendingPathComponent("cute-main-scheduled.png"))
+        TaskRowDebug.alwaysShowActions = false
+        render(cute(AnyView(MainWindowView().environmentObject(store))), size: CGSize(width: 820, height: 1000),
+               to: dir.appendingPathComponent("cute-main-narrow.png"))
+
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
@@ -107,7 +125,16 @@ enum Snapshot {
         render(parts, size: CGSize(width: 900, height: 620), to: url)
     }
 
+    /// SNAPSHOT_RENDERER=image 이면 ImageRenderer로 (실험)
     static func render<V: View>(_ view: V, size: CGSize, to url: URL) {
+        if ProcessInfo.processInfo.environment["SNAPSHOT_RENDERER"] == "image" {
+            let r = ImageRenderer(content: view.frame(width: size.width, height: size.height))
+            r.scale = 2
+            if let img = r.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+                try? rep.representation(using: .png, properties: [:])?.write(to: url)
+            }
+            return
+        }
         let host = NSHostingView(rootView: view)
         host.frame = CGRect(origin: .zero, size: size)
         let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)

@@ -206,8 +206,8 @@ struct SpeechBubble: View {
             .padding(.horizontal, 14)
             .background {
                 ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white)
-                    RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.cute.ink, lineWidth: 2)
+                    RoundedRectangle(cornerRadius: 16, style: .circular).fill(Color.white)
+                    RoundedRectangle(cornerRadius: 16, style: .circular).strokeBorder(Color.cute.ink, lineWidth: 2)
                     // 꼬리: 45° 돌린 사각형의 오른쪽·아래 테두리만
                     BubbleTail()
                         .fill(Color.white)
@@ -276,14 +276,14 @@ struct CuteProgressBar: View {
         GeometryReader { geo in
             let w = geo.size.width * max(0, min(1, fraction))
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 8).fill(Color.cute.sidebar)
+                RoundedRectangle(cornerRadius: 8, style: .circular).fill(Color.cute.sidebar)
                 if w > 0 {
                     Rectangle().fill(Color.cute.tomato).frame(width: w)
                         .overlay(alignment: .trailing) { Rectangle().fill(Color.cute.ink).frame(width: 2) }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.cute.ink, lineWidth: 2))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .circular))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .circular).strokeBorder(Color.cute.ink, lineWidth: 2))
         }
         .frame(height: height)
         .accessibilityHidden(true)
@@ -301,6 +301,7 @@ struct ProjectChip: View {
             .foregroundStyle(Color.cute.ink)
             .padding(.vertical, 2)
             .padding(.horizontal, fontSize < 12 ? 8 : 10)
-            .background(project.cuteChip, in: RoundedRectangle(cornerRadius: 10))
+            .background(project.cuteChip, in: RoundedRectangle(cornerRadius: 10, style: .circular))
+            .fixedSize()
     }
 }

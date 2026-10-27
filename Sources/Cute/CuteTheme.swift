@@ -50,6 +50,9 @@ extension Project {
 }
 
 // MARK: - Surfaces (진한 외곽선 + 흐림 없는 그림자)
+//
+// 모서리는 모두 .circular. 기본값 .continuous는 반지름이 높이의 절반에 가까우면
+// (알약 모양 버튼·말풍선) 테두리 양 끝에 세로 막대가 생김
 
 extension View {
     /// 채움 + ink 테두리 + 아래로 떨어지는 딱딱한 그림자
@@ -66,7 +69,7 @@ extension View {
 
     func cuteSurface(radius: CGFloat, fill: Color, border: Color = .cute.ink,
                      lineWidth: CGFloat = 2, shadow: CGFloat = 0) -> some View {
-        cuteSurface(RoundedRectangle(cornerRadius: radius, style: .continuous),
+        cuteSurface(RoundedRectangle(cornerRadius: radius, style: .circular),
                     fill: fill, border: border, lineWidth: lineWidth, shadow: shadow)
     }
 }
@@ -84,13 +87,13 @@ struct CuteButtonStyle: ButtonStyle {
             .foregroundStyle(Color.cute.ink)
             .background {
                 ZStack {
-                    let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
                     if shadow > 0 && !pressed { shape.fill(Color.cute.ink).offset(y: shadow) }
                     shape.fill(fill)
                     shape.strokeBorder(Color.cute.ink, lineWidth: lineWidth)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: radius))
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .circular))
             .offset(y: pressed ? shadow : 0)
     }
 }
