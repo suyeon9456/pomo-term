@@ -71,6 +71,8 @@ enum InlineAdd: Equatable {
 
 enum ListTab: String, CaseIterable {
     case today, scheduled
+    /// 완료함: 지난날 완료해서 숨겨진 것까지 모두
+    case done
 
     var fileName: String { "\(rawValue).md" }
 }

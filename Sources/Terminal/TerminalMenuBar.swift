@@ -1,21 +1,13 @@
 import SwiftUI
 
-/// 메뉴 막대 라벨: `● 18:42` 알약.
+/// 터미널 테마 메뉴 막대 라벨: `● 18:42` 알약.
 /// MenuBarExtra는 라벨의 텍스트 색을 지우므로 컬러 이미지(템플릿 아님)로 렌더링해서 넣음
-struct MenuBarLabel: View {
+struct TerminalMenuBarLabel: View {
     @EnvironmentObject var store: AppStore
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Image(nsImage: Self.image(time: store.timeString, mode: store.mode, running: store.isRunning))
             .accessibilityLabel("pomo \(store.mode.key) \(store.timeString)")
-            .onAppear {
-                // 메뉴 막대 라벨은 항상 살아 있으므로 여기서 openWindow를 스토어에 연결
-                store.openMainWindow = {
-                    openWindow(id: "main")
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-            }
     }
 
     @MainActor
@@ -44,8 +36,8 @@ struct MenuBarPill: View {
     }
 }
 
-/// 메뉴 막대 팝오버 (reference/TermMenuBar.dc.html)
-struct MenuBarPopover: View {
+/// 터미널 테마 메뉴 막대 팝오버 (reference/TermMenuBar.dc.html)
+struct TerminalPopover: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {

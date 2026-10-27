@@ -224,7 +224,7 @@ final class AppStore: ObservableObject {
     /// - today: 기간 없는 할 일 + 시작일이 오늘이거나 지난 기간 할 일 (마감일만 있는 할 일은 scheduled에만)
     /// - scheduled: 기간 할 일 전체, 마감일 순
     /// 탭 분류는 스토리 기준이고 하위 태스크는 스토리를 따라감.
-    /// 완료한 스토리는 완료한 날까지만 보임 (데이터에는 남음)
+    /// 완료한 스토리는 완료한 날까지만 보임 (데이터에는 남음). done 탭은 완료한 스토리 전체를 최근 순으로
     func rows(_ tab: ListTab, now: Date = Date()) -> [ListRow] {
         let today = Period.startOfDay(now)
         let visible = todos.filter { t in
@@ -234,6 +234,9 @@ final class AppStore: ObservableObject {
         }
         let list: [TodoItem]
         switch tab {
+        case .done:
+            list = todos.filter { $0.parentID == nil && $0.isDone }
+                .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
         case .today:
             list = visible.filter { t in
                 guard t.isScheduled else { return true }
@@ -340,6 +343,21 @@ final class AppStore: ObservableObject {
     /// 현재 할 일에 집중 시간이 따로 정해져 있는지
     var usesTaskFocusMinutes: Bool { selectedTodo?.focusMinutes != nil }
 
+    /// 모드별 지금 설정된 시간(분). focus는 현재 할 일의 집중 시간을 반영
+    func minutesSetting(for mode: TimerMode) -> Int { minutes(for: mode, in: settings) }
+
+    /// 지금 모드가 끝나면 넘어갈 모드
+    var nextMode: TimerMode {
+        guard mode == .focus else { return .focus }
+        return session % cycleLength == 0 ? .longBreak : .shortBreak
+    }
+
+    /// 목록별 남은 작업 수 (하위 태스크가 있는 스토리는 태스크로 셈). done은 완료한 스토리 수
+    func openLeafCount(_ tab: ListTab) -> Int {
+        if tab == .done { return rows(.done).filter { $0.depth == 0 }.count }
+        return rows(tab).filter { !$0.item.isDone && !hasChildren($0.item) }.count
+    }
+
     func tabLabel(for mode: TimerMode) -> String { "\(mode.key) \(minutes(for: mode, in: settings))m" }
 
     func asciiBar(width: Int, percent: Bool = true) -> String {
@@ -405,6 +423,23 @@ final class AppStore: ObservableObject {
 
     /// 지금 열려 있는 목록 안 입력줄 (한 번에 하나만)
     @Published var inlineAdd: InlineAdd?
+
+    /// 목록 안 입력줄에서 Enter. scheduled 탭의 맨 아래 추가면 임시 기간(오늘~일주일)을 넣음
+    @discardableResult
+    func submitInlineAdd(_ target: InlineAdd, _ title: String) -> TodoItem? {
+        switch target {
+        case .top:
+            return addTodo(title, period: listTab == .scheduled ? Self.defaultSchedulePeriod : nil)
+        case .sub(let id):
+            guard let story = todos.first(where: { $0.id == id }) else { return nil }
+            return addSubtask(to: story, title)
+        }
+    }
+
+    static var defaultSchedulePeriod: (start: Date?, due: Date) {
+        let today = Period.startOfDay(Date())
+        return (nil, Calendar.current.date(byAdding: .day, value: 7, to: today) ?? today)
+    }
 
     func beginAdd(_ target: InlineAdd) {
         if case .sub(let id) = target, let story = todos.first(where: { $0.id == id }) {
@@ -523,7 +558,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched|done · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · theme terminal|cute · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -572,7 +607,8 @@ final class AppStore: ObservableObject {
             switch arg.lowercased() {
             case "today", "t": listTab = .today
             case "sched", "scheduled", "s": listTab = .scheduled
-            default: fail("usage: ls today|sched")
+            case "done", "d": listTab = .done
+            default: fail("usage: ls today|sched|done")
             }
         case "due":
             guard let picked, parts.count == 3 else {
@@ -615,6 +651,15 @@ final class AppStore: ObservableObject {
                 setMinutes(n, for: m)
             } else {
                 fail("usage: set focus|short|long <분>  (focus 1~120, short 1~60, long 1~90)")
+            }
+        case "theme":
+            // 테마는 화면 쪽 설정(@AppStorage "theme")이라 UserDefaults에 바로 씀
+            let themes = ["terminal", "cute"]
+            if themes.contains(arg.lowercased()) {
+                UserDefaults.standard.set(arg.lowercased(), forKey: "theme")
+                addLog("· theme → \(arg.lowercased())", .info)
+            } else {
+                fail("usage: theme terminal|cute")
             }
         case "mini", "m": toggleMiniTimer?()
         case "clear": log = []
