@@ -17,6 +17,7 @@ struct PomodoroTodoApp: App {
     init() {
         let store = AppStore(persistent: Snapshot.outputDirectory == nil)
         store.toggleMiniTimer = { MiniTimerController.shared.toggle(store: store) }
+        if Snapshot.outputDirectory == nil { GlobalHotKey.shared.bind(to: store) }
         _store = StateObject(wrappedValue: store)
     }
 

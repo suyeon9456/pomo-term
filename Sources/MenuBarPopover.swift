@@ -171,6 +171,7 @@ struct MenuBarPopover: View {
         HStack {
             Text("today: \(store.todayCount) pomo · \(store.focusTimeText)")
             Spacer()
+            if store.settings.globalHotKey { Text(GlobalHotKey.displayName) }
             Button { store.toggleMiniTimer?() } label: {
                 Text("▣ mini").foregroundStyle(Color.term.dim).contentShape(Rectangle())
             }

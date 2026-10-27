@@ -14,6 +14,10 @@ struct SettingsView: View {
                     value: $store.settings.longBreakInterval, in: 2...10)
             Toggle("다음 타이머 자동 시작", isOn: $store.settings.autoStartNext)
             Toggle("완료 시 소리 재생", isOn: $store.settings.playSound)
+            Toggle("\(GlobalHotKey.displayName)로 어디서든 시작/일시정지", isOn: $store.settings.globalHotKey)
+            Text("VS Code 등 \(GlobalHotKey.displayName)를 쓰는 앱과 겹치면 꺼 주세요.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(20)
         .frame(width: 360)

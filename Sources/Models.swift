@@ -70,6 +70,22 @@ struct AppSettings: Codable, Equatable {
     var longBreakInterval = 4
     var autoStartNext = false
     var playSound = true
+    var globalHotKey = true
+
+    init() {}
+
+    // 새 설정이 추가돼도 예전 data.json의 설정이 그대로 읽히도록 빠진 키는 기본값
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        focusMinutes = try c.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? d.focusMinutes
+        shortBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .shortBreakMinutes) ?? d.shortBreakMinutes
+        longBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .longBreakMinutes) ?? d.longBreakMinutes
+        longBreakInterval = try c.decodeIfPresent(Int.self, forKey: .longBreakInterval) ?? d.longBreakInterval
+        autoStartNext = try c.decodeIfPresent(Bool.self, forKey: .autoStartNext) ?? d.autoStartNext
+        playSound = try c.decodeIfPresent(Bool.self, forKey: .playSound) ?? d.playSound
+        globalHotKey = try c.decodeIfPresent(Bool.self, forKey: .globalHotKey) ?? d.globalHotKey
+    }
 }
 
 struct SavedState: Codable {
