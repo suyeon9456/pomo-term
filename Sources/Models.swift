@@ -13,7 +13,14 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var estimatedPomodoros = 1
     var completedPomodoros = 0
     var project: Project = .work
+    /// 기간 할 일이면 마감일이 있음. 시작일은 선택
+    var startDate: Date?
+    var dueDate: Date?
+    /// 완료한 날이 지나면 목록에서 숨기기 위해 기록
+    var completedAt: Date?
     var createdAt = Date()
+
+    var isScheduled: Bool { dueDate != nil }
 
     init(title: String, estimatedPomodoros: Int = 1, project: Project = .work) {
         self.title = title
@@ -30,8 +37,17 @@ struct TodoItem: Identifiable, Codable, Equatable {
         estimatedPomodoros = try c.decodeIfPresent(Int.self, forKey: .estimatedPomodoros) ?? 1
         completedPomodoros = try c.decodeIfPresent(Int.self, forKey: .completedPomodoros) ?? 0
         project = try c.decodeIfPresent(Project.self, forKey: .project) ?? .work
+        startDate = try c.decodeIfPresent(Date.self, forKey: .startDate)
+        dueDate = try c.decodeIfPresent(Date.self, forKey: .dueDate)
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
+}
+
+enum ListTab: String, CaseIterable {
+    case today, scheduled
+
+    var fileName: String { "\(rawValue).md" }
 }
 
 enum TimerMode: String, Codable, CaseIterable {

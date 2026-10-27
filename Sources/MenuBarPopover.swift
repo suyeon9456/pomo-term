@@ -134,9 +134,9 @@ struct MenuBarPopover: View {
         .accessibilityLabel(label)
     }
 
-    /// 현재 집중 대상을 뺀 미완료 할 일 3개. 번호는 메인 창과 같은 순서 기준
+    /// 오늘 목록에서 현재 집중 대상을 뺀 미완료 할 일 3개. 번호는 메인 창 today 탭 기준
     private var nextItems: [(number: Int, item: TodoItem)] {
-        store.orderedTodos.enumerated()
+        store.orderedTodos(.today).enumerated()
             .filter { !$0.element.isDone && $0.element.id != store.selectedTodo?.id }
             .prefix(3)
             .map { ($0.offset + 1, $0.element) }

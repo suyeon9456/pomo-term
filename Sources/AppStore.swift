@@ -16,6 +16,8 @@ final class AppStore: ObservableObject {
     @Published private(set) var session = 1
     /// 최근 6줄만 유지
     @Published private(set) var log: [LogEntry] = []
+    /// 메인 창에서 보고 있는 목록. 화면의 # 번호와 명령어의 <#>가 이 목록 기준
+    @Published var listTab: ListTab = .today
 
     /// 화면 밖(미니 타이머, 명령어)에서 창을 열기 위한 연결 고리. 앱이 시작될 때 채워짐
     var openMainWindow: (() -> Void)?
@@ -28,6 +30,7 @@ final class AppStore: ObservableObject {
     private let persistent: Bool
 
     private static let logLimit = 6
+    private var dayChangeObserver: NSObjectProtocol?
 
     private static var fileURL: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -44,6 +47,13 @@ final class AppStore: ObservableObject {
         addLog("pomo v1.0 · help 를 입력하면 명령어를 볼 수 있어요", .info)
         if Self.canNotify {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        // 자정이 지나면 오늘 목록·D-day·오늘 통계를 다시 계산
+        dayChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSCalendarDayChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.rollDayIfNeeded()
+            self?.objectWillChange.send()
         }
     }
 
@@ -177,12 +187,38 @@ final class AppStore: ObservableObject {
 
     // MARK: - Derived values
 
+    /// 지금 보고 있는 목록
+    var orderedTodos: [TodoItem] { orderedTodos(listTab) }
+
     /// 미완료 → 완료 순서. 화면의 # 번호와 명령어의 <#>가 이 순서를 따름
-    var orderedTodos: [TodoItem] { todos.filter { !$0.isDone } + todos.filter { $0.isDone } }
-    var openCount: Int { todos.filter { !$0.isDone }.count }
-    var doneCount: Int { todos.filter { $0.isDone }.count }
+    /// - today: 기간 없는 할 일 + 기간이 시작됐거나 마감이 지난 기간 할 일
+    /// - scheduled: 기간 할 일 전체, 마감일 순
+    /// 완료한 할 일은 완료한 날까지만 보임 (데이터에는 남음)
+    func orderedTodos(_ tab: ListTab, now: Date = Date()) -> [TodoItem] {
+        let today = Period.startOfDay(now)
+        let visible = todos.filter { t in
+            guard t.isDone else { return true }
+            return t.completedAt.map { Period.startOfDay($0) >= today } ?? true
+        }
+        let list: [TodoItem]
+        switch tab {
+        case .today:
+            list = visible.filter { t in
+                guard t.isScheduled else { return true }
+                return (t.startDate ?? .distantPast) <= today
+            }
+        case .scheduled:
+            list = visible.filter(\.isScheduled).sorted {
+                ($0.dueDate ?? .distantFuture, $0.startDate ?? .distantPast) < ($1.dueDate ?? .distantFuture, $1.startDate ?? .distantPast)
+            }
+        }
+        return list.filter { !$0.isDone } + list.filter(\.isDone)
+    }
+
+    var openCount: Int { orderedTodos.filter { !$0.isDone }.count }
+    var doneCount: Int { orderedTodos.filter(\.isDone).count }
     var remainingPomodoros: Int {
-        todos.filter { !$0.isDone }.reduce(0) { $0 + max(0, $1.estimatedPomodoros - $1.completedPomodoros) }
+        orderedTodos.filter { !$0.isDone }.reduce(0) { $0 + max(0, $1.estimatedPomodoros - $1.completedPomodoros) }
     }
 
     func tabLabel(for mode: TimerMode) -> String { "\(mode.key) \(minutes(for: mode, in: settings))m" }
@@ -228,19 +264,36 @@ final class AppStore: ObservableObject {
 
     // MARK: - Todos
 
-    func addTodo(_ title: String, estimate: Int = 1, project: Project = .work) {
+    func addTodo(_ title: String, estimate: Int = 1, project: Project = .work,
+                 period: (start: Date?, due: Date)? = nil) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let item = TodoItem(title: trimmed, estimatedPomodoros: estimate, project: project)
+        var item = TodoItem(title: trimmed, estimatedPomodoros: estimate, project: project)
+        item.startDate = period?.start
+        item.dueDate = period?.due
         todos.append(item)
-        if selectedTodo == nil { selectedTodoID = item.id }
-        addLog("+ added \"\(trimmed)\"", .add)
+        if selectedTodo == nil, orderedTodos(.today).contains(where: { $0.id == item.id }) { selectedTodoID = item.id }
+        let suffix = period.map { "  " + Period.text(start: $0.start, due: $0.due) } ?? ""
+        addLog("+ added \"\(trimmed)\"\(suffix)", .add)
+    }
+
+    func setPeriod(_ item: TodoItem, start: Date?, due: Date?) {
+        update(item) {
+            $0.startDate = due == nil ? nil : start.map(Period.startOfDay)
+            $0.dueDate = due.map(Period.startOfDay)
+        }
+        if let due {
+            addLog("· period \(item.title)  \(Period.text(start: start, due: due))", .info)
+        } else {
+            addLog("· period 해제 → today: \(item.title)", .info)
+        }
     }
 
     func toggleDone(_ item: TodoItem) {
         guard let i = todos.firstIndex(where: { $0.id == item.id }) else { return }
         todos[i].isDone.toggle()
-        if selectedTodo == nil { selectedTodoID = orderedTodos.first { !$0.isDone }?.id }
+        todos[i].completedAt = todos[i].isDone ? Date() : nil
+        if selectedTodo == nil { selectedTodoID = orderedTodos(.today).first { !$0.isDone }?.id }
         let t = todos[i]
         addLog(t.isDone ? "✓ done \(t.title)" : "↩ reopen \(t.title)", t.isDone ? .success : .info)
     }
@@ -258,7 +311,7 @@ final class AppStore: ObservableObject {
 
     func delete(_ item: TodoItem) {
         todos.removeAll { $0.id == item.id }
-        if selectedTodo == nil { selectedTodoID = orderedTodos.first { !$0.isDone }?.id }
+        if selectedTodo == nil { selectedTodoID = orderedTodos(.today).first { !$0.isDone }?.id }
         addLog("- removed \"\(item.title)\"", .info)
     }
 
@@ -266,7 +319,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> · done <#> · focus <#> · mode <m> · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · done <#> · focus <#> · ls today|sched · due <#> <M/D~M/D|-> · mode <m> · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -286,7 +339,30 @@ final class AppStore: ObservableObject {
         case "reset", "r": reset()
         case "skip": skip()
         case "add", "a":
-            if arg.isEmpty { fail("usage: add <할 일>") } else { addTodo(arg) }
+            // 마지막 단어가 기간이면 기간 할 일로 추가 (예: add 리팩터링 10/27~10/31)
+            var title = arg
+            var period: (start: Date?, due: Date)?
+            if parts.count > 2, let p = Period.parse(parts.last!) {
+                period = p
+                title = parts.dropFirst().dropLast().joined(separator: " ")
+            }
+            if title.isEmpty { fail("usage: add <할 일> [M/D~M/D]") }
+            else if listTab == .scheduled && period == nil { fail("scheduled에는 기간이 필요해요: add <할 일> ~M/D") }
+            else { addTodo(title, period: period) }
+        case "ls":
+            switch arg.lowercased() {
+            case "today", "t": listTab = .today
+            case "sched", "scheduled", "s": listTab = .scheduled
+            default: fail("usage: ls today|sched")
+            }
+        case "due":
+            let num = parts.count > 1 ? Int(parts[1]) : nil
+            guard let num, list.indices.contains(num - 1), parts.count == 3 else {
+                fail("usage: due <#> <M/D~M/D>   (기간 해제: due <#> -)"); break
+            }
+            if parts[2] == "-" { setPeriod(list[num - 1], start: nil, due: nil) }
+            else if let p = Period.parse(parts[2]) { setPeriod(list[num - 1], start: p.start, due: p.due) }
+            else { fail("기간 형식: 11/3, ~11/3, 10/27~10/31, ~내일") }
         case "done", "d":
             if let picked { toggleDone(picked) } else { fail("usage: done <#>") }
         case "focus", "f":
@@ -314,7 +390,12 @@ final class AppStore: ObservableObject {
         defer { loading = false }
         guard let data = try? Data(contentsOf: Self.fileURL),
               let s = try? JSONDecoder().decode(SavedState.self, from: data) else { return }
-        todos = s.todos
+        // 예전 버전에서 완료한 할 일은 완료 시각이 없으므로 지금 완료한 것으로 보고 내일부터 숨김
+        todos = s.todos.map { t in
+            var t = t
+            if t.isDone && t.completedAt == nil { t.completedAt = Date() }
+            return t
+        }
         settings = s.settings
         selectedTodoID = s.selectedTodoID
         todayDate = s.todayDate
