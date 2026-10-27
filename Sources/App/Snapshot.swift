@@ -13,6 +13,7 @@ enum Snapshot {
 
     static func run(to dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        renderCuteParts(to: dir.appendingPathComponent("cute-parts.png"))
 
         let store = AppStore.sample()
         let renameStore = AppStore.sample()
@@ -61,6 +62,49 @@ enum Snapshot {
         .padding(20)
         .background(Color(hex: 0x262B2A))
         render(minis, size: CGSize(width: 360, height: 244), to: dir.appendingPathComponent("mini.png"))
+    }
+
+    /// 귀여운 테마 부품 모음 (캐릭터 표정, 아이콘, 링, 말풍선, 버튼)
+    static func renderCuteParts(to url: URL) {
+        let parts = VStack(alignment: .leading, spacing: 24) {
+            HStack(spacing: 24) {
+                ForEach([TomatoMood.idle, .focus, .rest], id: \.self) { TomatoMascot(mood: $0, size: 170) }
+                VStack(spacing: 12) {
+                    TomatoMascot(mood: .focus, size: 76, lineScale: 1.4)
+                    TomatoMascot(mood: .focus, size: 44, lineScale: 2, simple: true)
+                    TomatoMascot(mood: .idle, size: 40, lineScale: 2, simple: true)
+                }
+            }
+            HStack(spacing: 8) {
+                ForEach([TomatoIconStyle.filled, .empty, .current, .upcoming], id: \.self) { TomatoIcon(style: $0, size: 22) }
+                ProjectChip(project: .work); ProjectChip(project: .personal); ProjectChip(project: .study)
+                CuteProgressBar(fraction: 0.33).frame(width: 200)
+            }
+            HStack(spacing: 28) {
+                ZStack {
+                    CuteRing(progress: 0.25, mode: .focus, diameter: 232, lineWidth: 16, outlined: true)
+                    TomatoMascot(mood: .focus, size: 170)
+                }
+                .frame(width: 260, height: 260)
+                CuteRing(progress: 0.6, mode: .shortBreak, diameter: 62, lineWidth: 7)
+                VStack(spacing: 20) {
+                    SpeechBubble(text: "쉿, 집중 중이야… 19분만 더!")
+                    HStack(spacing: 22) {
+                        Button {} label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 20, weight: .bold)) }
+                            .buttonStyle(CuteCircleButtonStyle(size: 50))
+                        Button {} label: { CutePlayIcon(size: 32).offset(x: 2) }
+                            .buttonStyle(CuteCircleButtonStyle(fill: TimerMode.focus.cuteAccent, size: 78, shadow: 5, lineWidth: 2.5))
+                        Button {} label: { CutePauseIcon(size: 28) }
+                            .buttonStyle(CuteCircleButtonStyle(fill: TimerMode.shortBreak.cuteAccent, size: 78, shadow: 5, lineWidth: 2.5))
+                    }
+                    Button {} label: { Text("추가").font(.system(size: 15, weight: .semibold)).padding(.horizontal, 18).frame(height: 38) }
+                        .buttonStyle(CuteButtonStyle(fill: .cute.butter, radius: 12))
+                }
+            }
+        }
+        .padding(30)
+        .background(Color.cute.window)
+        render(parts, size: CGSize(width: 900, height: 620), to: url)
     }
 
     static func render<V: View>(_ view: V, size: CGSize, to url: URL) {
