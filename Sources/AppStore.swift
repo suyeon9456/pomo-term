@@ -246,9 +246,10 @@ final class AppStore: ObservableObject {
         }
         let stories = list.filter { !$0.isDone } + list.filter(\.isDone)
         return stories.enumerated().flatMap { i, story in
-            [ListRow(number: "\(i + 1)", item: story, depth: 0)]
-                + children(of: story).enumerated().map { j, task in
-                    ListRow(number: "\(i + 1).\(j + 1)", item: task, depth: 1)
+            let kids = children(of: story)
+            return [ListRow(number: "\(i + 1)", item: story, depth: 0)]
+                + kids.enumerated().map { j, task in
+                    ListRow(number: "\(i + 1).\(j + 1)", item: task, depth: 1, isLastChild: j == kids.count - 1)
                 }
         }
     }
@@ -661,6 +662,23 @@ final class AppStore: ObservableObject {
         ]
         for i in s.todos.indices where s.todos[i].isDone { s.todos[i].completedAt = Date() }
         s.todos[1].focusMinutes = 50
+        func task(_ title: String, of storyTitle: String, est: Int, done: Int, completed: Bool = false) -> TodoItem {
+            let story = s.todos.first { $0.title == storyTitle }!
+            var t = TodoItem(title: title, estimatedPomodoros: est, project: story.project)
+            t.parentID = story.id
+            t.completedPomodoros = done
+            t.isDone = completed
+            t.completedAt = completed ? Date() : nil
+            return t
+        }
+        s.todos += [
+            task("API 스펙 정리", of: "결제 모듈 리팩터링", est: 1, done: 1, completed: true),
+            task("결제 화면 리팩터링", of: "결제 모듈 리팩터링", est: 3, done: 1),
+            task("QA 대응", of: "결제 모듈 리팩터링", est: 1, done: 0),
+            task("필기 기출 복습", of: "정보처리기사 실기", est: 8, done: 0),
+            task("실기 모의고사", of: "정보처리기사 실기", est: 6, done: 0),
+        ]
+        if let i = s.todos.firstIndex(where: { $0.title == "정보처리기사 실기" }) { s.todos[i].isCollapsed = true }
         s.selectedTodoID = s.todos[0].id
         s.session = 2
         s.remaining = 18 * 60 + 42

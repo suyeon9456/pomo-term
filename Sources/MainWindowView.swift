@@ -78,12 +78,14 @@ private struct TasksPane: View {
                     .lineLimit(1)
             }
 
-            let list = store.orderedTodos
+            // 접힌 스토리의 하위 태스크는 숨김 (번호는 그대로 유지)
+            let collapsed = Set(store.todos.filter(\.isCollapsed).map(\.id))
+            let list = store.rows(store.listTab).filter { row in row.item.parentID.map { !collapsed.contains($0) } ?? true }
             // 목록에 기간 할 일이 하나라도 있으면 period 칸을 보여줌
-            let showsPeriod = list.contains(where: \.isScheduled)
+            let showsPeriod = list.contains(where: \.item.isScheduled)
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    Text("#").frame(width: 24, alignment: .trailing)
+                    Text("#").frame(width: TaskRow.numberWidth, alignment: .trailing)
                     Text("st").frame(width: 44, alignment: .leading)
                     Text("title").frame(maxWidth: .infinity, alignment: .leading)
                     if showsPeriod { Text("period").frame(width: TaskRow.periodWidth, alignment: .leading) }
@@ -111,10 +113,10 @@ private struct TasksPane: View {
         }
     }
 
-    private func rows(_ list: [TodoItem], showsPeriod: Bool) -> some View {
+    private func rows(_ list: [ListRow], showsPeriod: Bool) -> some View {
         LazyVStack(spacing: 0) {
-            ForEach(Array(list.enumerated()), id: \.element.id) { i, item in
-                TaskRow(number: i + 1, item: item, showsPeriod: showsPeriod) { editingPeriod = item }
+            ForEach(list) { row in
+                TaskRow(row: row, showsPeriod: showsPeriod) { editingPeriod = row.item }
             }
             if list.isEmpty {
                 Text(store.listTab == .today ? "할 일이 없어요 — add <할 일> 로 추가"
@@ -153,23 +155,26 @@ private struct ListTabButton: View {
 
 private struct TaskRow: View {
     @EnvironmentObject var store: AppStore
-    let number: Int
-    let item: TodoItem
+    let row: ListRow
     let showsPeriod: Bool
     let onEditPeriod: () -> Void
+    @State private var confirmingDone = false
 
     static let periodWidth: CGFloat = 150
+    static let numberWidth: CGFloat = 36
 
+    private var item: TodoItem { row.item }
     private var isActive: Bool { store.selectedTodo?.id == item.id }
+    private var isStory: Bool { row.depth == 0 && store.hasChildren(item) }
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("\(number)")
+            Text(row.number)
                 .font(.term(13))
                 .foregroundStyle(Color.term.muted)
-                .frame(width: 24, alignment: .trailing)
+                .frame(width: Self.numberWidth, alignment: .trailing)
 
-            Button { store.toggleDone(item) } label: {
+            Button(action: toggleDone) {
                 Text(item.isDone ? "[x]" : "[ ]")
                     .font(.term(14, .bold))
                     .foregroundStyle(item.isDone ? Color.term.accentFocus : Color.term.text)
@@ -178,14 +183,43 @@ private struct TaskRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.isDone ? "\(item.title) 완료 취소" : "\(item.title) 완료로 표시")
+            .confirmationDialog("열린 태스크 \(store.openChildrenCount(item))개가 있어요", isPresented: $confirmingDone) {
+                Button("태스크까지 모두 완료") { store.toggleDone(item, includeTasks: true) }
+                Button("스토리만 완료") { store.toggleDone(item) }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("\(item.title)을(를) 완료로 표시할까요?")
+            }
+
+            // 스토리 접기/펼치기 자리. 하위 태스크가 없으면 빈칸으로 제목 줄을 맞춤
+            Button { store.setCollapsed(item, !item.isCollapsed) } label: {
+                Text(isStory ? (item.isCollapsed ? "▸" : "▾") : " ")
+                    .font(.term(16, .bold))
+                    .foregroundStyle(Color.term.dim)
+                    .frame(width: 14, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!isStory)
+            .padding(.trailing, -6)
+            .accessibilityLabel(item.isCollapsed ? "\(item.title) 펼치기" : "\(item.title) 접기")
+            .accessibilityHidden(!isStory)
 
             Button { store.select(item) } label: {
                 HStack(spacing: 0) {
+                    if row.depth == 1 {
+                        Text(row.isLastChild ? "└ " : "├ ").foregroundStyle(Color.term.muted)
+                    }
                     Text(item.title)
                         .strikethrough(item.isDone, color: Color.term.muted)
                         .foregroundStyle(item.isDone ? Color.term.muted : isActive ? Color.white : Color.term.text)
                         .lineLimit(1)
                         .truncationMode(.tail)
+                    if let p = store.taskProgress(item) {
+                        Text(" [\(p.done)/\(p.total)]")
+                            .font(.term(12))
+                            .foregroundStyle(p.done == p.total ? Color.term.accentFocus : Color.term.muted)
+                    }
                     if isActive {
                         Text("  ◀ now").font(.term(14, .bold)).foregroundStyle(Color.term.accentFocus)
                     }
@@ -241,12 +275,19 @@ private struct TaskRow: View {
 
     @ViewBuilder private var menu: some View {
         if !item.isDone { Button("집중하기") { store.select(item) } }
-        Button(item.isDone ? "미완료로 되돌리기" : "완료") { store.toggleDone(item) }
+        Button(item.isDone ? "미완료로 되돌리기" : "완료", action: toggleDone)
+        Divider()
+        if row.depth == 0 {
+            Button("하위 태스크 추가…") { store.prefillCommand("sub \(row.number) ") }
+        }
+        if isStory {
+            Button(item.isCollapsed ? "펼치기" : "접기") { store.setCollapsed(item, !item.isCollapsed) }
+        }
         Divider()
         Button(item.isScheduled ? "기간 변경…" : "기간 설정…", action: onEditPeriod)
         if item.isScheduled { Button("기간 해제 (오늘 할 일로)") { store.setPeriod(item, start: nil, due: nil) } }
         Picker("태그", selection: Binding(get: { item.project },
-                                         set: { p in store.update(item) { $0.project = p } })) {
+                                         set: { p in store.setProject(item, p) })) {
             ForEach(Project.allCases, id: \.self) { Text("#\($0.rawValue)").tag($0) }
         }
         Picker("집중 시간", selection: Binding(get: { item.focusMinutes },
@@ -263,7 +304,17 @@ private struct TaskRow: View {
             ForEach(1...8, id: \.self) { Text("\($0)").tag($0) }
         }
         Divider()
-        Button("삭제", role: .destructive) { store.delete(item) }
+        let kids = store.children(of: item).count
+        Button(kids > 0 ? "삭제 (태스크 \(kids)개 포함)" : "삭제", role: .destructive) { store.delete(item) }
+    }
+
+    /// 열린 태스크가 있는 스토리를 완료할 때는 태스크도 함께 완료할지 물어봄
+    private func toggleDone() {
+        if !item.isDone && store.openChildrenCount(item) > 0 {
+            confirmingDone = true
+        } else {
+            store.toggleDone(item)
+        }
     }
 }
 
@@ -434,8 +485,9 @@ private struct TimerPane: View {
             .padding(.vertical, 8)
 
             VStack(alignment: .leading, spacing: 4) {
-                infoLine("task  ", store.selectedTodo.map { t in t.title + (t.focusMinutes.map { "  [\($0)m]" } ?? "") }
-                                    ?? "(none) — focus <#> 로 선택")
+                infoLine("task  ", store.selectedTodo.map { t in
+                    (store.parent(of: t).map { "\($0.title) › " } ?? "") + t.title + (t.focusMinutes.map { "  [\($0)m]" } ?? "")
+                } ?? "(none) — focus <#> 로 선택")
                 infoLine("next  ", store.nextText)
                 HStack(spacing: 0) {
                     Text("cycle ").foregroundStyle(Color.term.muted)
@@ -467,6 +519,7 @@ private struct TimerPane: View {
                 Text("commands").font(.term(12, .bold)).foregroundStyle(Color.term.text)
                 Text("start · pause · reset · skip")
                 Text("add <할 일> [M/D~M/D] · done <#> · focus <#>")
+                Text("sub <#> <태스크> · fold|unfold <#>   (#: 1, 1.2)")
                 Text("ls today|sched · due <#> <M/D~M/D> (해제 -)")
                 Text("mode <m> · set <m> <분> · time <#> <분>")
                 Text("mini · clear · help   (m: focus|short|long)")
@@ -540,21 +593,20 @@ private struct MinuteButton: View {
 
 private struct CommandLineBar: View {
     @EnvironmentObject var store: AppStore
-    @State private var command = ""
     @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
             Text("❯").font(.term(15, .extraBold)).foregroundStyle(Color.term.accentFocus)
-            TextField("", text: $command,
+            TextField("", text: $store.commandDraft,
                       prompt: Text("명령어 입력 (예: add 리팩터링, done 2, start)").foregroundColor(Color.term.muted))
                 .textFieldStyle(.plain)
                 .font(.term(14))
                 .foregroundStyle(Color.term.bright)
                 .focused($focused)
                 .onSubmit {
-                    store.run(command: command)
-                    command = ""
+                    store.run(command: store.commandDraft)
+                    store.commandDraft = ""
                 }
                 .accessibilityLabel("명령어 입력")
         }
@@ -564,6 +616,14 @@ private struct CommandLineBar: View {
         .background(Color.term.cmdline)
         .overlay(alignment: .top) { Rectangle().fill(Color.term.border).frame(height: 1) }
         .onAppear { focused = true }
+        .onChange(of: store.commandFocusToken) { _ in
+            focused = true
+            // 포커스를 받으면 전체 선택되므로 커서를 끝으로 옮겨 이어서 입력하게 함
+            DispatchQueue.main.async {
+                guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+                editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
+            }
+        }
     }
 }
 

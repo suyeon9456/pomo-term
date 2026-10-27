@@ -58,6 +58,8 @@ struct ListRow: Identifiable {
     let number: String
     let item: TodoItem
     let depth: Int
+    /// 스토리의 마지막 하위 태스크인지 (├ / └ 표시용)
+    var isLastChild = false
     var id: UUID { item.id }
 }
 

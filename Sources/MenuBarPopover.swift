@@ -134,12 +134,16 @@ struct MenuBarPopover: View {
         .accessibilityLabel(label)
     }
 
-    /// 오늘 목록에서 현재 집중 대상을 뺀 미완료 할 일 3개. 번호는 메인 창 today 탭 기준
-    private var nextItems: [(number: Int, item: TodoItem)] {
-        store.orderedTodos(.today).enumerated()
-            .filter { !$0.element.isDone && $0.element.id != store.selectedTodo?.id }
+    /// 오늘 목록에서 현재 집중 대상을 뺀 미완료 작업 3개. 열린 태스크가 있는 스토리는 태스크로 대신 보여줌.
+    /// 번호는 메인 창 today 탭 기준 (1, 1.2)
+    private var nextItems: [ListRow] {
+        store.rows(.today)
+            .filter { row in
+                !row.item.isDone && row.item.id != store.selectedTodo?.id
+                    && store.openChildrenCount(row.item) == 0
+            }
             .prefix(3)
-            .map { ($0.offset + 1, $0.element) }
+            .map { $0 }
     }
 
     private var next: some View {
@@ -148,7 +152,7 @@ struct MenuBarPopover: View {
             if nextItems.isEmpty {
                 Text("(empty)").foregroundStyle(Color.term.muted).frame(minHeight: 36)
             }
-            ForEach(nextItems, id: \.item.id) { entry in
+            ForEach(nextItems) { entry in
                 Button { store.select(entry.item) } label: {
                     HStack(spacing: 10) {
                         Text("\(entry.number)").foregroundStyle(Color.term.muted)
