@@ -191,7 +191,7 @@ final class AppStore: ObservableObject {
     var orderedTodos: [TodoItem] { orderedTodos(listTab) }
 
     /// 미완료 → 완료 순서. 화면의 # 번호와 명령어의 <#>가 이 순서를 따름
-    /// - today: 기간 없는 할 일 + 기간이 시작됐거나 마감이 지난 기간 할 일
+    /// - today: 기간 없는 할 일 + 시작일이 오늘이거나 지난 기간 할 일 (마감일만 있는 할 일은 scheduled에만)
     /// - scheduled: 기간 할 일 전체, 마감일 순
     /// 완료한 할 일은 완료한 날까지만 보임 (데이터에는 남음)
     func orderedTodos(_ tab: ListTab, now: Date = Date()) -> [TodoItem] {
@@ -205,7 +205,8 @@ final class AppStore: ObservableObject {
         case .today:
             list = visible.filter { t in
                 guard t.isScheduled else { return true }
-                return (t.startDate ?? .distantPast) <= today
+                guard let start = t.startDate else { return false }
+                return start <= today
             }
         case .scheduled:
             list = visible.filter(\.isScheduled).sorted {
