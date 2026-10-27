@@ -20,11 +20,14 @@ enum Snapshot {
         render(MainWindowView().environmentObject(store), size: CGSize(width: 640, height: 900),
                to: dir.appendingPathComponent("main-narrow.png"))
 
+        // scheduled 탭: 스토리 아래 태스크 입력줄과 마우스 오버 버튼까지 보이게
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
-        schedStore.inlineAdd = .top
+        if let story = schedStore.todos.first(where: { schedStore.hasChildren($0) }) { schedStore.inlineAdd = .sub(story.id) }
+        TaskRowDebug.alwaysShowActions = true
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
                to: dir.appendingPathComponent("main-scheduled.png"))
+        TaskRowDebug.alwaysShowActions = false
         render(PeriodEditor(item: schedStore.orderedTodos[0]).environmentObject(schedStore),
                size: CGSize(width: 400, height: 280), to: dir.appendingPathComponent("period-editor.png"))
 

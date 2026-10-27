@@ -477,13 +477,8 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// 명령어 입력줄에 미리 채우고 포커스 (예: 우클릭 → 하위 태스크 추가 → "sub 1 ")
+    /// 명령어 입력줄 내용
     @Published var commandDraft = ""
-    @Published private(set) var commandFocusToken = 0
-    func prefillCommand(_ text: String) {
-        commandDraft = text
-        commandFocusToken += 1
-    }
 
     func select(_ item: TodoItem) {
         guard !item.isDone else { return }

@@ -115,8 +115,13 @@ private struct TasksPane: View {
 
     private func rows(_ list: [ListRow], showsPeriod: Bool) -> some View {
         LazyVStack(spacing: 0) {
-            ForEach(list) { row in
-                TaskRow(row: row, showsPeriod: showsPeriod) { editingPeriod = row.item }
+            ForEach(lines(list)) { line in
+                switch line {
+                case .task(let row):
+                    TaskRow(row: row, showsPeriod: showsPeriod) { editingPeriod = row.item }
+                case .addSub(let storyID):
+                    InlineAddRow(target: .sub(storyID))
+                }
             }
             InlineAddRow(target: .top) { added in
                 // scheduled에는 기간이 필요하므로 추가하자마자 기간 설정 창을 엶
@@ -207,6 +212,33 @@ private struct InlineAddRow: View {
     }
 }
 
+/// 목록의 한 줄: 할 일 행, 또는 스토리의 마지막 태스크 아래에 끼워 넣는 태스크 입력줄
+private enum ListLine: Identifiable {
+    case task(ListRow)
+    case addSub(UUID)
+
+    var id: String {
+        switch self {
+        case .task(let row): return row.id.uuidString
+        case .addSub(let storyID): return "add-\(storyID.uuidString)"
+        }
+    }
+}
+
+extension TasksPane {
+    fileprivate func lines(_ list: [ListRow]) -> [ListLine] {
+        guard case .sub(let storyID) = store.inlineAdd else { return list.map(ListLine.task) }
+        var out: [ListLine] = []
+        for (i, row) in list.enumerated() {
+            out.append(.task(row))
+            let story = row.depth == 0 ? row.item.id : row.item.parentID
+            let nextIsChild = i + 1 < list.count && list[i + 1].depth == 1
+            if story == storyID && !nextIsChild { out.append(.addSub(storyID)) }
+        }
+        return out
+    }
+}
+
 private struct ListTabButton: View {
     @EnvironmentObject var store: AppStore
     let tab: ListTab
@@ -236,6 +268,7 @@ private struct TaskRow: View {
     let showsPeriod: Bool
     let onEditPeriod: () -> Void
     @State private var confirmingDone = false
+    @State private var hovering = false
 
     static let periodWidth: CGFloat = 150
     static let numberWidth: CGFloat = 36
@@ -308,6 +341,32 @@ private struct TaskRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(item.title) 집중하기")
 
+            // 마우스를 올리면 나타나는 버튼. 자리는 항상 차지해서 칸이 흔들리지 않게 함
+            let showActions = hovering || TaskRowDebug.alwaysShowActions
+            HStack(spacing: 6) {
+                if row.depth == 0 && !item.isDone {
+                    RowActionButton(title: "+ sub", label: "\(item.title)에 하위 태스크 추가") {
+                        store.beginAdd(.sub(item.id))
+                    }
+                }
+                Menu { menu } label: {
+                    Text("⋯")
+                        .font(.term(13, .bold))
+                        .foregroundStyle(Color.term.text)
+                        .frame(width: 28, height: 24)
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.term.borderStrong))
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .accessibilityLabel("\(item.title) 메뉴")
+            }
+            .opacity(showActions ? 1 : 0)
+            .allowsHitTesting(showActions)
+            .accessibilityHidden(!showActions)
+
             if showsPeriod {
                 period.frame(width: Self.periodWidth, alignment: .leading)
             }
@@ -330,6 +389,8 @@ private struct TaskRow: View {
         .frame(minHeight: 44)
         .background(isActive ? Color.term.activeRow : Color.clear)
         .overlay(alignment: .bottom) { DashedLine(color: .term.borderDashed) }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
         .contextMenu { menu }
     }
 
@@ -354,8 +415,8 @@ private struct TaskRow: View {
         if !item.isDone { Button("집중하기") { store.select(item) } }
         Button(item.isDone ? "미완료로 되돌리기" : "완료", action: toggleDone)
         Divider()
-        if row.depth == 0 {
-            Button("하위 태스크 추가…") { store.prefillCommand("sub \(row.number) ") }
+        if row.depth == 0 && !item.isDone {
+            Button("하위 태스크 추가…") { store.beginAdd(.sub(item.id)) }
         }
         if isStory {
             Button(item.isCollapsed ? "펼치기" : "접기") { store.setCollapsed(item, !item.isCollapsed) }
@@ -645,6 +706,33 @@ struct OutlineButton: View {
     }
 }
 
+/// 스냅샷에서 마우스 오버 버튼을 확인하기 위한 스위치
+enum TaskRowDebug {
+    static var alwaysShowActions = false
+}
+
+/// 행에 마우스를 올리면 나타나는 작은 버튼
+private struct RowActionButton: View {
+    let title: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.term(12, .bold))
+                .foregroundStyle(Color.term.accentFocus)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.term.borderStrong))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityLabel(label)
+    }
+}
+
 /// 집중·휴식 시간 −/+ 버튼. 실행 중엔 비활성
 private struct MinuteButton: View {
     @Environment(\.isEnabled) private var isEnabled
@@ -693,14 +781,6 @@ private struct CommandLineBar: View {
         .background(Color.term.cmdline)
         .overlay(alignment: .top) { Rectangle().fill(Color.term.border).frame(height: 1) }
         .onAppear { focused = true }
-        .onChange(of: store.commandFocusToken) { _ in
-            focused = true
-            // 포커스를 받으면 전체 선택되므로 커서를 끝으로 옮겨 이어서 입력하게 함
-            DispatchQueue.main.async {
-                guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-                editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
-            }
-        }
     }
 }
 
