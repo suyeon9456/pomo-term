@@ -28,6 +28,10 @@ struct PomodoroTodoApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 760)
         .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("새 할 일") { store.beginAdd(.top) }
+                    .keyboardShortcut("n")
+            }
             CommandGroup(after: .windowArrangement) {
                 Button("미니 타이머") { store.toggleMiniTimer?() }
                     .keyboardShortcut("m", modifiers: [.command, .shift])

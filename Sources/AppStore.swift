@@ -387,10 +387,11 @@ final class AppStore: ObservableObject {
 
     // MARK: - Todos
 
+    @discardableResult
     func addTodo(_ title: String, estimate: Int = 1, project: Project = .work,
-                 period: (start: Date?, due: Date)? = nil) {
+                 period: (start: Date?, due: Date)? = nil) -> TodoItem? {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return nil }
         var item = TodoItem(title: trimmed, estimatedPomodoros: estimate, project: project)
         item.startDate = period?.start
         item.dueDate = period?.due
@@ -398,6 +399,17 @@ final class AppStore: ObservableObject {
         if selectedTodo == nil, orderedTodos(.today).contains(where: { $0.id == item.id }) { selectedTodoID = item.id }
         let suffix = period.map { "  " + Period.text(start: $0.start, due: $0.due) } ?? ""
         addLog("+ added \"\(trimmed)\"\(suffix)", .add)
+        return item
+    }
+
+    /// 지금 열려 있는 목록 안 입력줄 (한 번에 하나만)
+    @Published var inlineAdd: InlineAdd?
+
+    func beginAdd(_ target: InlineAdd) {
+        if case .sub(let id) = target, let story = todos.first(where: { $0.id == id }) {
+            setCollapsed(story, false)
+        }
+        inlineAdd = target
     }
 
     func setPeriod(_ item: TodoItem, start: Date?, due: Date?) {
@@ -413,9 +425,10 @@ final class AppStore: ObservableObject {
     }
 
     /// 하위 태스크 추가. 태그는 스토리를 따르고, 기간은 비워두면 스토리 기간을 따름
-    func addSubtask(to story: TodoItem, _ title: String, period: (start: Date?, due: Date)? = nil) {
+    @discardableResult
+    func addSubtask(to story: TodoItem, _ title: String, period: (start: Date?, due: Date)? = nil) -> TodoItem? {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, story.parentID == nil else { return }
+        guard !trimmed.isEmpty, story.parentID == nil else { return nil }
         var item = TodoItem(title: trimmed, project: story.project)
         item.parentID = story.id
         item.startDate = period?.start
@@ -423,6 +436,7 @@ final class AppStore: ObservableObject {
         todos.append(item)
         update(story) { $0.isCollapsed = false }
         addLog("+ added \"\(trimmed)\" → \(story.title)", .add)
+        return item
     }
 
     func openChildrenCount(_ item: TodoItem) -> Int { children(of: item).filter { !$0.isDone }.count }

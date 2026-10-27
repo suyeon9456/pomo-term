@@ -118,15 +118,92 @@ private struct TasksPane: View {
             ForEach(list) { row in
                 TaskRow(row: row, showsPeriod: showsPeriod) { editingPeriod = row.item }
             }
-            if list.isEmpty {
-                Text(store.listTab == .today ? "할 일이 없어요 — add <할 일> 로 추가"
-                                             : "기간 할 일이 없어요 — add <할 일> ~M/D 로 추가")
-                    .font(.term(13))
-                    .foregroundStyle(Color.term.muted)
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .padding(.leading, 36)
+            InlineAddRow(target: .top) { added in
+                // scheduled에는 기간이 필요하므로 추가하자마자 기간 설정 창을 엶
+                if store.listTab == .scheduled { editingPeriod = added }
             }
         }
+    }
+}
+
+/// 목록 안에서 바로 입력하는 줄. 평소엔 "+ 할 일 추가…", 누르면 입력칸.
+/// Enter로 추가하고 입력칸은 그대로 남아 연달아 추가, Esc나 빈 칸으로 포커스를 잃으면 닫힘
+private struct InlineAddRow: View {
+    @EnvironmentObject var store: AppStore
+    let target: InlineAdd
+    var onAdded: (TodoItem) -> Void = { _ in }
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var isEditing: Bool { store.inlineAdd == target }
+    private var isSub: Bool { target != .top }
+
+    private var placeholder: String {
+        if isSub { return "태스크 추가…" }
+        return store.listTab == .scheduled ? "기간 할 일 추가… (추가 후 기간 설정)" : "할 일 추가…"
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Color.clear.frame(width: TaskRow.numberWidth, height: 1)
+            Text("+")
+                .font(.term(14, .bold))
+                .foregroundStyle(isEditing ? Color.term.accentFocus : Color.term.muted)
+                .frame(width: 44, alignment: .leading)
+            HStack(spacing: 0) {
+                Color.clear.frame(width: 14 - 6 + 12, height: 1) // 접기 버튼 자리
+                if isSub { Text("└ ").foregroundStyle(Color.term.muted) }
+                if isEditing {
+                    TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Color.term.muted))
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(Color.term.bright)
+                        .focused($focused)
+                        .onSubmit(submit)
+                        .onExitCommand(perform: close)
+                        .onAppear { DispatchQueue.main.async { focused = true } }
+                        .onChange(of: focused) { isFocused in
+                            if !isFocused && text.trimmingCharacters(in: .whitespaces).isEmpty { close() }
+                        }
+                        .accessibilityLabel(placeholder)
+                } else {
+                    Text(placeholder).foregroundStyle(Color.term.muted)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .font(.term(14))
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+        .onTapGesture { if !isEditing { store.beginAdd(target) } }
+        .accessibilityAddTraits(isEditing ? [] : .isButton)
+    }
+
+    private func submit() {
+        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { close(); return }
+        switch target {
+        case .top:
+            if let item = store.addTodo(title, period: store.listTab == .scheduled ? Self.defaultPeriod : nil) {
+                onAdded(item)
+            }
+        case .sub(let id):
+            if let story = store.todos.first(where: { $0.id == id }), let item = store.addSubtask(to: story, title) {
+                onAdded(item)
+            }
+        }
+        text = ""
+        focused = true
+    }
+
+    private func close() {
+        text = ""
+        if store.inlineAdd == target { store.inlineAdd = nil }
+    }
+
+    /// scheduled 탭에서 추가할 때의 임시 기간 (오늘부터 일주일). 바로 뜨는 기간 설정 창에서 바꿈
+    private static var defaultPeriod: (start: Date?, due: Date) {
+        let today = Period.startOfDay(Date())
+        return (nil, Calendar.current.date(byAdding: .day, value: 7, to: today) ?? today)
     }
 }
 

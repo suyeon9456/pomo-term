@@ -63,6 +63,12 @@ struct ListRow: Identifiable {
     var id: UUID { item.id }
 }
 
+/// 목록 안에서 바로 입력하는 줄: 맨 아래 할 일 추가, 또는 스토리 아래 태스크 추가
+enum InlineAdd: Equatable {
+    case top
+    case sub(UUID)
+}
+
 enum ListTab: String, CaseIterable {
     case today, scheduled
 

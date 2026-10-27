@@ -22,6 +22,7 @@ enum Snapshot {
 
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
+        schedStore.inlineAdd = .top
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
                to: dir.appendingPathComponent("main-scheduled.png"))
         render(PeriodEditor(item: schedStore.orderedTodos[0]).environmentObject(schedStore),
