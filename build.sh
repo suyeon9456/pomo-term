@@ -3,9 +3,8 @@
 set -e
 cd "$(dirname "$0")"
 
-export DEVELOPER_DIR=/Library/Developer/CommandLineTools
-SWIFTC=$DEVELOPER_DIR/usr/bin/swiftc
-SDK=$DEVELOPER_DIR/SDKs/MacOSX.sdk
+SWIFTC=$(xcrun --find swiftc)
+SDK=$(xcrun --sdk macosx --show-sdk-path)
 APP=build/PomodoroTodo.app
 
 rm -rf "$APP"
