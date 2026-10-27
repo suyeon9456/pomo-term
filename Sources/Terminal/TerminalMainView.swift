@@ -549,7 +549,8 @@ private struct TimerPane: View {
                 Text("sub <#> <태스크> · mv <#> <제목>   (#: 1, 1.2)")
                 Text("ls today|sched|done · due <#> <M/D~M/D>")
                 Text("mode <m> · set <m> <분> · time <#> <분>")
-                Text("mini · clear · help   (m: focus|short|long)")
+                Text("theme cute · mini · clear · help")
+                Text("(m: focus|short|long)")
             }
             .font(.term(12))
             .foregroundStyle(Color.term.dim)

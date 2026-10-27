@@ -558,7 +558,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched|done · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched|done · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · theme terminal|cute · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -651,6 +651,15 @@ final class AppStore: ObservableObject {
                 setMinutes(n, for: m)
             } else {
                 fail("usage: set focus|short|long <분>  (focus 1~120, short 1~60, long 1~90)")
+            }
+        case "theme":
+            // 테마는 화면 쪽 설정(@AppStorage "theme")이라 UserDefaults에 바로 씀
+            let themes = ["terminal", "cute"]
+            if themes.contains(arg.lowercased()) {
+                UserDefaults.standard.set(arg.lowercased(), forKey: "theme")
+                addLog("· theme → \(arg.lowercased())", .info)
+            } else {
+                fail("usage: theme terminal|cute")
             }
         case "mini", "m": toggleMiniTimer?()
         case "clear": log = []

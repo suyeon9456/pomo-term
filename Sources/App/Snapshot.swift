@@ -66,6 +66,19 @@ enum Snapshot {
         .background(Color(hex: 0xFCE3D6))
         render(cute(AnyView(cuteMinis)), size: CGSize(width: 360, height: 270), to: dir.appendingPathComponent("cute-mini.png"))
 
+        // 설정 창은 @AppStorage로 테마를 읽으므로 잠깐 바꿨다가 사용자가 고른 값으로 되돌림
+        let savedTheme = UserDefaults.standard.string(forKey: ThemeID.storageKey)
+        for theme in ThemeID.allCases {
+            UserDefaults.standard.set(theme.rawValue, forKey: ThemeID.storageKey)
+            render(SettingsView().environmentObject(store).fixedSize(), size: CGSize(width: 480, height: 560),
+                   to: dir.appendingPathComponent("settings-\(theme.rawValue).png"))
+        }
+        if let savedTheme {
+            UserDefaults.standard.set(savedTheme, forKey: ThemeID.storageKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: ThemeID.storageKey)
+        }
+
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),
