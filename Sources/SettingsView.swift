@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - Settings
-
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
 
@@ -19,7 +17,11 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .font(.term(13))
+        .tint(Color.term.accentFocus)
         .padding(20)
-        .frame(width: 360)
+        .frame(width: 400)
+        .background(Color.term.window)
+        .preferredColorScheme(.dark)
     }
 }
