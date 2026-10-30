@@ -3,8 +3,19 @@
 set -e
 cd "$(dirname "$0")"
 
-SWIFTC=$(xcrun --find swiftc)
-SDK=$(xcrun --sdk macosx --show-sdk-path)
+# Xcode가 정상이면 xcrun으로 찾고, 안 되면(Xcode 첫 실행 설정 전 등) Command Line Tools로
+CLT=/Library/Developer/CommandLineTools
+if SWIFTC=$(xcrun --find swiftc 2>/dev/null) && SDK=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null); then
+  :
+else
+  export DEVELOPER_DIR=$CLT
+  SWIFTC=$CLT/usr/bin/swiftc
+fi
+# Command Line Tools에는 컴파일러보다 새 SDK가 함께 깔려 있을 수 있어서(xcrun은 가장 새 SDK를 고름)
+# 컴파일러와 짝이 맞는 기본 링크 MacOSX.sdk를 씀
+if [[ $SWIFTC == $CLT/* ]]; then
+  SDK=$CLT/SDKs/MacOSX.sdk
+fi
 APP=build/PomodoroTodo.app
 
 rm -rf "$APP"
