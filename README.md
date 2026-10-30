@@ -62,9 +62,14 @@ macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이�
 |---|---|
 | ![설이 미니 타이머](docs/screenshots/seol-mini.png) | ![골든 타임 미니 타이머](docs/screenshots/golden-mini.png) |
 
-## 요구 사항
+## 설치
 
-- macOS 14 (Sonoma) 이상, Apple Silicon
+[Releases](https://github.com/suyeon9456/pomo-term/releases)에서 `Pomo-<버전>.dmg`를 받아 열고, **Pomo**를 응용 프로그램 폴더로 끌어다 놓으면 돼요.
+macOS 14 (Sonoma) 이상, Apple Silicon · Intel 모두 지원해요.
+
+## 요구 사항 (직접 빌드할 때)
+
+- macOS 14 (Sonoma) 이상
 - Command Line Tools for Xcode (`xcode-select --install`). Xcode 앱은 없어도 빌드돼요
 
 ## 빌드 · 실행
@@ -173,6 +178,9 @@ Sources/
 Resources/Fonts/                JetBrains Mono, Nanum Gothic Coding (터미널 테마)
 Resources/Images/               설이·골든 타임 강아지 이미지
 ```
+
+배포용 파일(서명·공증한 DMG·zip)은 `./scripts/release.sh`로 만들어요. 처음 한 번 필요한 준비는 [docs/RELEASING.md](docs/RELEASING.md)에 있어요.
+앱 아이콘을 바꾸려면 `Sources/App/AppIconArt.swift`를 고치고 `./scripts/make-icon.sh`를 실행하면 돼요.
 
 화면을 PNG로 뽑아 보려면 (샘플 데이터 사용, `data.json`은 건드리지 않음):
 
