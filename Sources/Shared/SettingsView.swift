@@ -89,6 +89,8 @@ private struct ThemeCard: View {
             .background(Color(hex: 0xFFF6EF))
         case .pom:
             dogPreview(.seol)
+        case .golden:
+            dogPreview(.golden)
         }
     }
 

@@ -5,6 +5,7 @@ enum ThemeID: String, CaseIterable, Identifiable {
     case terminal
     case cute
     case pom
+    case golden
 
     static let storageKey = "theme"
 
@@ -15,6 +16,7 @@ enum ThemeID: String, CaseIterable, Identifiable {
         case .terminal: return "터미널"
         case .cute: return "토마토 친구"
         case .pom: return "설이"
+        case .golden: return "골든 타임"
         }
     }
 }
@@ -85,6 +87,7 @@ struct MainWindowView: View {
         case .terminal: TerminalMainView()
         case .cute: CuteMainView()
         case .pom: DogMainView(style: .seol)
+        case .golden: DogMainView(style: .golden)
         }
     }
 }
@@ -95,7 +98,7 @@ struct MenuBarPopover: View {
     var body: some View {
         switch themeID {
         case .terminal: TerminalPopover()
-        case .cute, .pom: CutePopover()
+        case .cute, .pom, .golden: CutePopover()
         }
     }
 }
@@ -110,7 +113,7 @@ struct MenuBarLabel: View {
         Group {
             switch themeID {
             case .terminal: TerminalMenuBarLabel()
-            case .cute, .pom: CuteMenuBarLabel()
+            case .cute, .pom, .golden: CuteMenuBarLabel()
             }
         }
         .onAppear {
@@ -130,7 +133,7 @@ struct MiniTimerView: View {
     var body: some View {
         switch themeID {
         case .terminal: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
-        case .cute, .pom: CuteMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .cute, .pom, .golden: CuteMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
         }
     }
 }

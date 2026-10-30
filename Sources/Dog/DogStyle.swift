@@ -106,6 +106,7 @@ struct DogStyle {
     static func of(_ theme: ThemeID) -> DogStyle? {
         switch theme {
         case .pom: return .seol
+        case .golden: return .golden
         default: return nil
         }
     }

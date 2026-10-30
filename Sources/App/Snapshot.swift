@@ -81,7 +81,7 @@ enum Snapshot {
         }
 
         // 강아지 테마 메인 창
-        for (theme, name) in [(ThemeID.pom, "seol")] {
+        for (theme, name) in [(ThemeID.pom, "seol"), (.golden, "golden")] {
             let dog = { (v: AnyView) in v.environment(\.themeID, theme) }
             render(dog(AnyView(MainWindowView().environmentObject(store))), size: CGSize(width: 1280, height: 900),
                    to: dir.appendingPathComponent("\(name)-main.png"))
