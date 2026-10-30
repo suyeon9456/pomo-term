@@ -5,6 +5,16 @@ import SwiftUI
 /// 화면 녹화 권한 없이 시안과 비교하기 위한 도구. data.json은 건드리지 않음.
 @MainActor
 enum Snapshot {
+    /// `--icon <폴더>`: 앱 아이콘 iconset을 렌더링하고 종료 (scripts/make-icon.sh)
+    nonisolated static var iconDirectory: URL? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--icon"), i + 1 < args.count else { return nil }
+        return URL(fileURLWithPath: args[i + 1], isDirectory: true)
+    }
+
+    /// 스냅샷·아이콘 같은 개발용 실행이면 데이터와 설정을 건드리지 않음
+    nonisolated static var isDevRun: Bool { outputDirectory != nil || iconDirectory != nil }
+
     nonisolated static var outputDirectory: URL? {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count else { return nil }
