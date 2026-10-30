@@ -98,7 +98,8 @@ struct MenuBarPopover: View {
     var body: some View {
         switch themeID {
         case .terminal: TerminalPopover()
-        case .cute, .pom, .golden: CutePopover()
+        case .cute: CutePopover()
+        case .pom, .golden: DogPopover(style: DogStyle.of(themeID) ?? .seol)
         }
     }
 }
@@ -113,7 +114,8 @@ struct MenuBarLabel: View {
         Group {
             switch themeID {
             case .terminal: TerminalMenuBarLabel()
-            case .cute, .pom, .golden: CuteMenuBarLabel()
+            case .cute: CuteMenuBarLabel()
+            case .pom, .golden: DogMenuBarLabel(style: DogStyle.of(themeID) ?? .seol)
             }
         }
         .onAppear {
@@ -133,7 +135,8 @@ struct MiniTimerView: View {
     var body: some View {
         switch themeID {
         case .terminal: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
-        case .cute, .pom, .golden: CuteMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .cute: CuteMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .pom, .golden: DogMiniTimer(style: DogStyle.of(themeID) ?? .seol, onOpenMain: onOpenMain, onClose: onClose)
         }
     }
 }

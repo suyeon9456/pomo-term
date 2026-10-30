@@ -103,6 +103,30 @@ enum Snapshot {
             render(dog(AnyView(MainWindowView().environmentObject(sched))), size: CGSize(width: 1280, height: 900),
                    to: dir.appendingPathComponent("\(name)-main-scheduled.png"))
             TaskRowDebug.alwaysShowActions = false
+
+            render(dog(AnyView(MenuBarPopover().environmentObject(running).fixedSize())), size: CGSize(width: 320, height: 640),
+                   to: dir.appendingPathComponent("\(name)-popover.png"))
+            let minis = VStack(spacing: 4) {
+                MiniTimerView().environmentObject(store)
+                MiniTimerView().environmentObject(cuteBreak)
+            }
+            .padding(10)
+            .background(Color(hex: 0xF5ECE6))
+            render(dog(AnyView(minis)), size: CGSize(width: 370, height: 290), to: dir.appendingPathComponent("\(name)-mini.png"))
+            if let style = DogStyle.of(theme) {
+                let pills = VStack(spacing: 10) {
+                    ForEach([Color(hex: 0xF4EEE9), Color(hex: 0x2B2B2B)], id: \.self) { bar in
+                        HStack(spacing: 12) {
+                            Image(nsImage: DogMenuBarLabel.image(style: style, time: "18:42", mode: .focus, running: true))
+                            Image(nsImage: DogMenuBarLabel.image(style: style, time: "05:00", mode: .shortBreak, running: true))
+                            Image(nsImage: DogMenuBarLabel.image(style: style, time: "25:00", mode: .focus, running: false))
+                        }
+                        .padding(8)
+                        .background(bar)
+                    }
+                }
+                render(pills, size: CGSize(width: 320, height: 90), to: dir.appendingPathComponent("\(name)-menubar-label.png"))
+            }
         }
 
         let schedStore = AppStore.sample()
