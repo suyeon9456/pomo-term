@@ -558,7 +558,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Commands
 
-    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched|done · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · theme terminal|cute · mini · clear"
+    static let helpText = "start · pause · reset · skip · add <할 일> [M/D~M/D] · sub <#> <태스크> · mv <#> <제목> · done <#> [--all|--only] · focus <#> · fold|unfold <#> · ls today|sched|done · due <#> <M/D~M/D> (해제: -) · mode <m> · set focus|short|long <분> · time <#> <분> (기본: -) · theme terminal|cute|pom|golden · mini · clear"
 
     func run(command raw: String) {
         let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -654,12 +654,14 @@ final class AppStore: ObservableObject {
             }
         case "theme":
             // 테마는 화면 쪽 설정(@AppStorage "theme")이라 UserDefaults에 바로 씀
-            let themes = ["terminal", "cute"]
-            if themes.contains(arg.lowercased()) {
-                UserDefaults.standard.set(arg.lowercased(), forKey: "theme")
-                addLog("· theme → \(arg.lowercased())", .info)
+            let themes = ["terminal": "terminal", "cute": "cute", "tomato": "cute", "토마토": "cute",
+                          "pom": "pom", "seol": "pom", "설이": "pom",
+                          "golden": "golden", "골든": "golden", "골든타임": "golden"]
+            if let theme = themes[arg.lowercased().replacingOccurrences(of: " ", with: "")] {
+                UserDefaults.standard.set(theme, forKey: "theme")
+                addLog("· theme → \(theme)", .info)
             } else {
-                fail("usage: theme terminal|cute")
+                fail("usage: theme terminal|cute|pom|golden  (설이 = pom, 골든 타임 = golden)")
             }
         case "mini", "m": toggleMiniTimer?()
         case "clear": log = []
