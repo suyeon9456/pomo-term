@@ -80,6 +80,31 @@ enum Snapshot {
             UserDefaults.standard.removeObject(forKey: ThemeID.storageKey)
         }
 
+        // 강아지 테마 메인 창
+        for (theme, name) in [(ThemeID.pom, "seol")] {
+            let dog = { (v: AnyView) in v.environment(\.themeID, theme) }
+            render(dog(AnyView(MainWindowView().environmentObject(store))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main.png"))
+            let running = AppStore.sample()
+            running.start()
+            render(dog(AnyView(MainWindowView().environmentObject(running))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-focus.png"))
+            running.pause()
+            render(dog(AnyView(MainWindowView().environmentObject(cuteBreak))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-break.png"))
+            let long = AppStore.sample()
+            long.switchMode(.longBreak)
+            render(dog(AnyView(MainWindowView().environmentObject(long))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-long.png"))
+            let sched = AppStore.sample()
+            sched.listTab = .scheduled
+            if let story = sched.todos.first(where: { sched.hasChildren($0) }) { sched.inlineAdd = .sub(story.id) }
+            TaskRowDebug.alwaysShowActions = true
+            render(dog(AnyView(MainWindowView().environmentObject(sched))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-scheduled.png"))
+            TaskRowDebug.alwaysShowActions = false
+        }
+
         let schedStore = AppStore.sample()
         schedStore.listTab = .scheduled
         render(MainWindowView().environmentObject(schedStore), size: CGSize(width: 1280, height: 840),

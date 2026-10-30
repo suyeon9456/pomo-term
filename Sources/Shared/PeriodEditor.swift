@@ -20,33 +20,33 @@ struct PeriodEditor: View {
     }
 
     private var isValid: Bool { !hasStart || Period.startOfDay(start) <= Period.startOfDay(due) }
-    private var isCute: Bool { themeID == .cute }
+    /// 터미널이 아니면 밝은 테마 색
+    private var light: LightPalette? { themeID.light }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if isCute {
-                Text("기간 정하기").font(.system(size: 18, weight: .bold)).foregroundStyle(Color.cute.ink)
+            if let light {
+                Text("기간 정하기").font(.system(size: 18, weight: .bold, design: light.design)).foregroundStyle(light.text)
             } else {
                 Text("── period ───────").font(.term(13, .bold)).foregroundStyle(Color.term.accentFocus)
             }
-            Text(item.title).foregroundStyle(isCute ? Color.cute.ink : Color.term.bright).lineLimit(2)
+            Text(item.title).foregroundStyle(light?.text ?? Color.term.bright).lineLimit(2)
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
-                    Toggle(isCute ? "시작일" : "start", isOn: $hasStart).toggleStyle(.checkbox)
+                    Toggle(light != nil ? "시작일" : "start", isOn: $hasStart).toggleStyle(.checkbox)
                     DatePicker("", selection: $start, displayedComponents: .date).labelsHidden().disabled(!hasStart)
                 }
                 GridRow {
-                    Text(isCute ? "마감일" : "due").foregroundStyle(isCute ? Color.cute.inkSecondary : Color.term.dim)
+                    Text(light != nil ? "마감일" : "due").foregroundStyle(light?.secondary ?? Color.term.dim)
                     DatePicker("", selection: $due, displayedComponents: .date).labelsHidden()
                 }
             }
 
             Text(isValid ? "\(Period.text(start: hasStart ? start : nil, due: due))  \(Period.ddayText(until: due))"
-                         : (isCute ? "시작일이 마감일보다 늦어요" : "✗ 시작일이 마감일보다 늦어요"))
-                .font(isCute ? .system(size: 13, weight: .semibold) : .term(12))
-                .foregroundStyle(isValid ? (isCute ? Color.cute.inkSecondary : Color.term.dim)
-                                         : (isCute ? Color.cute.link : Color.term.error))
+                         : (light != nil ? "시작일이 마감일보다 늦어요" : "✗ 시작일이 마감일보다 늦어요"))
+                .font(light.map { .system(size: 13, weight: .semibold, design: $0.design) } ?? .term(12))
+                .foregroundStyle(isValid ? (light?.secondary ?? Color.term.dim) : (light?.error ?? Color.term.error))
 
             HStack(spacing: 8) {
                 if item.isScheduled {
@@ -66,21 +66,30 @@ struct PeriodEditor: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .font(isCute ? .system(size: 14) : .term(13))
-        .foregroundStyle(isCute ? Color.cute.ink : Color.term.text)
+        .font(light.map { .system(size: 14, design: $0.design) } ?? .term(13))
+        .foregroundStyle(light?.text ?? Color.term.text)
         .padding(22)
         .frame(width: 400)
-        .background(isCute ? Color.cute.window : Color.term.window)
-        .preferredColorScheme(isCute ? .light : .dark)
+        .background(light?.window ?? Color.term.window)
+        .preferredColorScheme(light != nil ? .light : .dark)
     }
 
     @ViewBuilder
     private func button(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
-        if isCute {
+        if themeID == .cute {
             Button(action: action) {
                 Text(title).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 16).frame(height: 36)
             }
             .buttonStyle(CuteButtonStyle(fill: primary ? (isValid ? .cute.butter : .cute.sidebar) : .white, radius: 12))
+        } else if let dog = DogStyle.of(themeID) {
+            Button(action: action) {
+                Text(title)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(primary ? dog.textOnAccent : dog.text)
+                    .padding(.horizontal, 16)
+                    .frame(height: 36)
+            }
+            .buttonStyle(DogButtonStyle(fill: primary ? (isValid ? dog.focusAccent : dog.track) : dog.softButton, radius: 14))
         } else if primary {
             Button(action: action) {
                 Text(title)

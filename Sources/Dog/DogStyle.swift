@@ -87,6 +87,9 @@ struct DogStyle {
     let nextListTitle: String
     let popoverCaption: String
 
+    /// 장면 카드 위 말풍선 (골든만). 설이는 시안대로 말풍선 없음
+    let speech: DogSpeech?
+
     // MARK: 이미지
     let mascotImages: [MascotState: String]
     let mascotLabels: [MascotState: String]
@@ -100,11 +103,34 @@ struct DogStyle {
     func accent(_ mode: TimerMode) -> Color { mode == .focus ? focusAccent : breakAccent }
     func panel(_ mode: TimerMode) -> Color { mode == .focus ? focusPanel : breakPanel }
 
+    static func of(_ theme: ThemeID) -> DogStyle? {
+        switch theme {
+        case .pom: return .seol
+        default: return nil
+        }
+    }
+
     func modeName(_ mode: TimerMode) -> String {
         switch mode {
         case .focus: return "집중"
         case .shortBreak: return shortBreakName
         case .longBreak: return longBreakName
+        }
+    }
+}
+
+struct DogSpeech {
+    let idle: String
+    /// 남은 분을 받아서 문구를 만듦
+    let focusing: (Int) -> String
+    let breakIdle: String
+    let breakRunning: String
+
+    func text(state: MascotState, running: Bool, leftMinutes: Int) -> String {
+        switch state {
+        case .idle: return idle
+        case .focusing: return focusing(leftMinutes)
+        case .shortBreak, .longBreak: return running ? breakRunning : breakIdle
         }
     }
 }
@@ -150,6 +176,7 @@ extension DogStyle {
         focusButton: "함께하기", focusButtonActive: "함께하는 중",
         currentTaskTitle: "함께하는 일", noTaskText: "목록에서 함께할 일을 골라주세요",
         nextListTitle: "다음에 함께할 일", popoverCaption: "엎드려서 기다리는 중…",
+        speech: nil,
         mascotImages: [.idle: "pom-idle.png", .focusing: "pom-focus.png",
                        .shortBreak: "pom-short-break.png", .longBreak: "pom-long-break.png"],
         mascotLabels: [.idle: "앉아서 웃고 있는 하얀 포메라니안",
@@ -189,6 +216,10 @@ extension DogStyle {
         focusButton: "같이 하기", focusButtonActive: "함께 집중 중",
         currentTaskTitle: "함께 집중하는 일", noTaskText: "목록에서 같이 할 일을 골라주세요",
         nextListTitle: "다음에 같이 할 일", popoverCaption: "조용히 기다리는 중…",
+        speech: DogSpeech(idle: "같이 시작할까요? 꼬리 흔드는 중!",
+                          focusing: { "옆에서 조용히 기다릴게요… \($0)분" },
+                          breakIdle: "잘했어요! 산책 갈까요?",
+                          breakRunning: "공 던져주세요! 신나요~"),
         mascotImages: [.idle: "golden-idle.jpg", .focusing: "golden-focus.jpg",
                        .shortBreak: "golden-break.jpg", .longBreak: "golden-break.jpg"],
         mascotLabels: [.idle: "책상 옆에 앉아 꼬리 흔드는 리트리버 강아지",

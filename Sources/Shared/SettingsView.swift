@@ -4,13 +4,13 @@ struct SettingsView: View {
     @EnvironmentObject var store: AppStore
     @AppStorage(ThemeID.storageKey) private var themeID: ThemeID = .terminal
 
-    private var isCute: Bool { themeID == .cute }
+    private var light: LightPalette? { themeID.light }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("테마").font(.headline)
-                HStack(spacing: 12) {
+                LazyVGrid(columns: [GridItem(.fixed(196)), GridItem(.fixed(196))], alignment: .leading, spacing: 12) {
                     ForEach(ThemeID.allCases) { ThemeCard(theme: $0, selected: $0 == themeID) { themeID = $0 } }
                 }
             }
@@ -29,13 +29,13 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .font(isCute ? .system(size: 13) : .term(13))
+            .font(light.map { .system(size: 13, design: $0.design) } ?? .term(13))
         }
-        .tint(isCute ? Color.cute.tomato : Color.term.accentFocus)
+        .tint(light?.accent ?? Color.term.accentFocus)
         .padding(20)
         .frame(width: 480)
-        .background(isCute ? Color.cute.window : Color.term.window)
-        .preferredColorScheme(isCute ? .light : .dark)
+        .background(light?.window ?? Color.term.window)
+        .preferredColorScheme(light != nil ? .light : .dark)
         .animation(.easeInOut(duration: 0.25), value: themeID)
     }
 }
@@ -87,6 +87,17 @@ private struct ThemeCard: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(hex: 0xFFF6EF))
+        case .pom:
+            dogPreview(.seol)
         }
+    }
+
+    private func dogPreview(_ dog: DogStyle) -> some View {
+        HStack(spacing: 12) {
+            DogAvatar(file: dog.avatarHappy, size: 54, background: dog.sidebar)
+            Text("18:42").font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(dog.text)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(dog.focusPanel)
     }
 }
