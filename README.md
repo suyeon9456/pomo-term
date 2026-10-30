@@ -1,16 +1,22 @@
 # pomo-term
 
 macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이에요.
-테마를 두 가지 중에 고를 수 있고, 기능은 두 테마가 똑같아요.
+테마를 네 가지 중에 고를 수 있고, 기능은 모든 테마가 똑같아요.
 
 | 터미널 | 토마토 친구 |
 |---|---|
 | ![터미널 테마](docs/screenshots/main.png) | ![토마토 친구 테마](docs/screenshots/cute-main.png) |
 
+| 설이 | 골든 타임 |
+|---|---|
+| ![설이 테마](docs/screenshots/seol-main.png) | ![골든 타임 테마](docs/screenshots/golden-main.png) |
+
 - **터미널**: 개발자 감성의 다크 테마. 마우스로도, 명령어(`❯ add 리팩터링`, `done 2`, `start`)로도 쓸 수 있어요
 - **토마토 친구**: 표정이 바뀌는 토마토 캐릭터와 파스텔 카드의 밝은 테마
+- **설이**: 하얀 포메라니안이 상태마다 다른 모습으로 함께해요 (간식 타임 · 긴 놀이, 뼈다귀 간식)
+- **골든 타임**: 골든 리트리버 장면 카드와 말풍선, 살짝 움직이는 장면 (짧은 산책 · 긴 산책, 테니스공)
 
-테마는 설정(⌘,)에서 고르거나 터미널 테마에서 `theme cute`로 바꿀 수 있어요. 메인 창 · 메뉴 막대 · 미니 타이머가 함께 바뀌어요.
+테마는 설정(⌘,)에서 고르거나 터미널 테마에서 `theme cute` / `theme 설이` / `theme 골든`으로 바꿀 수 있어요. 메인 창 · 메뉴 막대 · 미니 타이머가 함께 바뀌어요.
 
 ## 기능
 
@@ -46,6 +52,16 @@ macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이�
 |---|---|
 | ![미니 타이머](docs/screenshots/cute-mini.png)<br>![메뉴 막대](docs/screenshots/cute-menubar-label.png) | ![설정](docs/screenshots/settings-cute.png) |
 
+### 설이 · 골든 타임
+
+| 집중 중 (골든 타임) | 메뉴 막대 팝오버 |
+|---|---|
+| ![골든 타임 집중](docs/screenshots/golden-main-focus.png) | ![설이 팝오버](docs/screenshots/seol-popover.png)<br>![골든 타임 팝오버](docs/screenshots/golden-popover.png) |
+
+| 미니 타이머 (설이) | 미니 타이머 (골든 타임) |
+|---|---|
+| ![설이 미니 타이머](docs/screenshots/seol-mini.png) | ![골든 타임 미니 타이머](docs/screenshots/golden-mini.png) |
+
 ## 요구 사항
 
 - macOS 14 (Sonoma) 이상, Apple Silicon
@@ -60,18 +76,18 @@ cd pomo-term
 open build/PomodoroTodo.app
 ```
 
-`build.sh`는 Command Line Tools의 `swiftc`로 컴파일한 뒤 `.app` 번들(Info.plist, 폰트 포함)을 만들고 ad-hoc 서명까지 해요.
+`build.sh`는 `xcrun`으로 찾은 `swiftc`(Xcode가 준비되지 않았으면 Command Line Tools)로 컴파일한 뒤 `.app` 번들(Info.plist, 폰트·이미지 포함)을 만들고 ad-hoc 서명까지 해요.
 계속 쓰려면 `build/PomodoroTodo.app`을 응용 프로그램 폴더로 옮기면 돼요.
 
 ## 사용법
 
 ### 마우스로
 
-| 하고 싶은 것 | 터미널 | 토마토 친구 |
+| 하고 싶은 것 | 터미널 | 토마토 친구 · 설이 · 골든 타임 |
 |---|---|---|
-| 할 일 추가 (⌘N) | 목록 맨 아래 `+ 할 일 추가…` | 맨 위 입력줄 + `추가` |
+| 할 일 추가 (⌘N) | 목록 맨 아래 `+ 할 일 추가…` | 맨 위 입력줄 (`추가` / `던지기`) |
 | 하위 태스크 추가 | 마우스를 올리고 `[+ sub]` | 마우스를 올리고 `+ 태스크` |
-| 집중 대상 선택 | 제목 클릭 | `▶ 집중하기` |
+| 집중 대상 선택 | 제목 클릭 | `집중하기` / `함께하기` / `같이 하기` |
 | 완료 | `[ ]` 클릭 | 체크박스 클릭 |
 | 제목 수정 | 제목 더블클릭 | 제목 더블클릭 |
 | 기간 · 태그 · 집중 시간 · 삭제 | 우클릭 또는 `[⋯]` | 우클릭 또는 `⋯` |
@@ -99,7 +115,7 @@ open build/PomodoroTodo.app
 | `mode focus\|short\|long` | | 모드 전환 |
 | `set focus\|short\|long <분>` | | 기본 시간 변경 |
 | `mini` | `m` | 미니 타이머 열기/닫기 |
-| `theme terminal\|cute` | | 테마 바꾸기 |
+| `theme terminal\|cute\|pom\|golden` | | 테마 바꾸기 (`theme 설이`, `theme 골든`도 돼요) |
 | `clear` · `help` | | 로그 비우기 · 명령어 목록 |
 
 기간은 `11/3`, `~11/3`(마감일만), `10/27~10/31`, `오늘~내일` 형식이에요.
@@ -151,8 +167,10 @@ Sources/
 │   ├── MiniTimerPanel.swift    미니 타이머 창 (NSPanel)
 │   └── SettingsView.swift      설정 창 · 테마 선택
 ├── Terminal/                   터미널 테마 (토큰, 메인 창, 메뉴 막대, 미니 타이머)
-└── Cute/                       토마토 친구 테마 (토큰, 캐릭터·부품, 메인 창, 타이머 패널, 메뉴 막대, 미니 타이머)
+├── Cute/                       토마토 친구 테마 (토큰, 캐릭터·부품, 메인 창, 타이머 패널, 메뉴 막대, 미니 타이머)
+└── Dog/                        강아지 테마 (설이·골든 타임이 함께 쓰는 화면, DogStyle로 색·문구·이미지만 다름)
 Resources/Fonts/                JetBrains Mono, Nanum Gothic Coding (터미널 테마)
+Resources/Images/               설이·골든 타임 강아지 이미지
 ```
 
 화면을 PNG로 뽑아 보려면 (샘플 데이터 사용, `data.json`은 건드리지 않음):
