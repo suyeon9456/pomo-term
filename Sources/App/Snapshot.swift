@@ -14,6 +14,7 @@ enum Snapshot {
     static func run(to dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         renderCuteParts(to: dir.appendingPathComponent("cute-parts.png"))
+        renderDogParts(to: dir.appendingPathComponent("dog-parts.png"))
 
         let store = AppStore.sample()
         let renameStore = AppStore.sample()
@@ -162,6 +163,33 @@ enum Snapshot {
     }
 
     /// SNAPSHOT_RENDERER=image 이면 ImageRenderer로 (실험)
+    /// 강아지 테마 부품 모음 (아이콘, 아바타, 이미지 로딩)
+    static func renderDogParts(to url: URL) {
+        let parts = VStack(alignment: .leading, spacing: 18) {
+            ForEach([DogStyle.seol, DogStyle.golden], id: \.appName) { style in
+                HStack(spacing: 10) {
+                    DogAvatar(file: style.avatarHappy, size: 42)
+                    DogAvatar(file: style.avatarSleep, size: 54)
+                    PawIcon(fill: style.focusAccent, size: 20)
+                    PawIcon(fill: style.sessionCurrent.fill, stroke: style.sessionCurrent.stroke, size: 20)
+                    TreatIcon(treat: style.treat, filled: true, size: 24)
+                    TreatIcon(treat: style.treat, filled: false, size: 24)
+                    DogNavIcon(kind: style.todayIcon, color: style.focusAccent)
+                    DogNavIcon(kind: .calendar, color: style.textSecondary)
+                    DogNavIcon(kind: style.doneIcon, color: style.textSecondary)
+                    DogProgressBar(fraction: 0.33, fill: style.focusAccent, track: style.track).frame(width: 120)
+                    Image(nsImage: DogImages.image(style.mascotImages[.idle]!)).resizable().scaledToFit().frame(height: 80)
+                    Image(nsImage: DogImages.image(style.menuBarImage)).resizable().scaledToFit().frame(height: 60)
+                }
+                .padding(10)
+                .background(style.window)
+            }
+        }
+        .padding(20)
+        .background(Color.white)
+        render(parts, size: CGSize(width: 900, height: 280), to: url)
+    }
+
     static func render<V: View>(_ view: V, size: CGSize, to url: URL) {
         if ProcessInfo.processInfo.environment["SNAPSHOT_RENDERER"] == "image" {
             let r = ImageRenderer(content: view.frame(width: size.width, height: size.height))
