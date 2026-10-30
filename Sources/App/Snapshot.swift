@@ -14,6 +14,7 @@ enum Snapshot {
     static func run(to dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         renderCuteParts(to: dir.appendingPathComponent("cute-parts.png"))
+        renderDogParts(to: dir.appendingPathComponent("dog-parts.png"))
 
         let store = AppStore.sample()
         let renameStore = AppStore.sample()
@@ -77,6 +78,55 @@ enum Snapshot {
             UserDefaults.standard.set(savedTheme, forKey: ThemeID.storageKey)
         } else {
             UserDefaults.standard.removeObject(forKey: ThemeID.storageKey)
+        }
+
+        // 강아지 테마 메인 창
+        for (theme, name) in [(ThemeID.pom, "seol"), (.golden, "golden")] {
+            let dog = { (v: AnyView) in v.environment(\.themeID, theme) }
+            render(dog(AnyView(MainWindowView().environmentObject(store))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main.png"))
+            let running = AppStore.sample()
+            running.start()
+            render(dog(AnyView(MainWindowView().environmentObject(running))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-focus.png"))
+            running.pause()
+            render(dog(AnyView(MainWindowView().environmentObject(cuteBreak))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-break.png"))
+            let long = AppStore.sample()
+            long.switchMode(.longBreak)
+            render(dog(AnyView(MainWindowView().environmentObject(long))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-long.png"))
+            let sched = AppStore.sample()
+            sched.listTab = .scheduled
+            if let story = sched.todos.first(where: { sched.hasChildren($0) }) { sched.inlineAdd = .sub(story.id) }
+            TaskRowDebug.alwaysShowActions = true
+            render(dog(AnyView(MainWindowView().environmentObject(sched))), size: CGSize(width: 1280, height: 900),
+                   to: dir.appendingPathComponent("\(name)-main-scheduled.png"))
+            TaskRowDebug.alwaysShowActions = false
+
+            render(dog(AnyView(MenuBarPopover().environmentObject(running).fixedSize())), size: CGSize(width: 320, height: 640),
+                   to: dir.appendingPathComponent("\(name)-popover.png"))
+            let minis = VStack(spacing: 4) {
+                MiniTimerView().environmentObject(store)
+                MiniTimerView().environmentObject(cuteBreak)
+            }
+            .padding(10)
+            .background(Color(hex: 0xF5ECE6))
+            render(dog(AnyView(minis)), size: CGSize(width: 370, height: 290), to: dir.appendingPathComponent("\(name)-mini.png"))
+            if let style = DogStyle.of(theme) {
+                let pills = VStack(spacing: 10) {
+                    ForEach([Color(hex: 0xF4EEE9), Color(hex: 0x2B2B2B)], id: \.self) { bar in
+                        HStack(spacing: 12) {
+                            Image(nsImage: DogMenuBarLabel.image(style: style, time: "18:42", mode: .focus, running: true))
+                            Image(nsImage: DogMenuBarLabel.image(style: style, time: "05:00", mode: .shortBreak, running: true))
+                            Image(nsImage: DogMenuBarLabel.image(style: style, time: "25:00", mode: .focus, running: false))
+                        }
+                        .padding(8)
+                        .background(bar)
+                    }
+                }
+                render(pills, size: CGSize(width: 320, height: 90), to: dir.appendingPathComponent("\(name)-menubar-label.png"))
+            }
         }
 
         let schedStore = AppStore.sample()
@@ -162,6 +212,33 @@ enum Snapshot {
     }
 
     /// SNAPSHOT_RENDERER=image 이면 ImageRenderer로 (실험)
+    /// 강아지 테마 부품 모음 (아이콘, 아바타, 이미지 로딩)
+    static func renderDogParts(to url: URL) {
+        let parts = VStack(alignment: .leading, spacing: 18) {
+            ForEach([DogStyle.seol, DogStyle.golden], id: \.appName) { style in
+                HStack(spacing: 10) {
+                    DogAvatar(file: style.avatarHappy, size: 42)
+                    DogAvatar(file: style.avatarSleep, size: 54)
+                    PawIcon(fill: style.focusAccent, size: 20)
+                    PawIcon(fill: style.sessionCurrent.fill, stroke: style.sessionCurrent.stroke, size: 20)
+                    TreatIcon(treat: style.treat, filled: true, size: 24)
+                    TreatIcon(treat: style.treat, filled: false, size: 24)
+                    DogNavIcon(kind: style.todayIcon, color: style.focusAccent)
+                    DogNavIcon(kind: .calendar, color: style.textSecondary)
+                    DogNavIcon(kind: style.doneIcon, color: style.textSecondary)
+                    DogProgressBar(fraction: 0.33, fill: style.focusAccent, track: style.track).frame(width: 120)
+                    Image(nsImage: DogImages.image(style.mascotImages[.idle]!)).resizable().scaledToFit().frame(height: 80)
+                    Image(nsImage: DogImages.image(style.menuBarImage)).resizable().scaledToFit().frame(height: 60)
+                }
+                .padding(10)
+                .background(style.window)
+            }
+        }
+        .padding(20)
+        .background(Color.white)
+        render(parts, size: CGSize(width: 900, height: 280), to: url)
+    }
+
     static func render<V: View>(_ view: V, size: CGSize, to url: URL) {
         if ProcessInfo.processInfo.environment["SNAPSHOT_RENDERER"] == "image" {
             let r = ImageRenderer(content: view.frame(width: size.width, height: size.height))

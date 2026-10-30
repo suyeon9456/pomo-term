@@ -4,6 +4,8 @@ import SwiftUI
 enum ThemeID: String, CaseIterable, Identifiable {
     case terminal
     case cute
+    case pom
+    case golden
 
     static let storageKey = "theme"
 
@@ -13,6 +15,8 @@ enum ThemeID: String, CaseIterable, Identifiable {
         switch self {
         case .terminal: return "터미널"
         case .cute: return "토마토 친구"
+        case .pom: return "설이"
+        case .golden: return "골든 타임"
         }
     }
 }
@@ -25,6 +29,32 @@ extension EnvironmentValues {
     var themeID: ThemeID {
         get { self[ThemeIDKey.self] }
         set { self[ThemeIDKey.self] = newValue }
+    }
+}
+
+/// 터미널을 뺀 밝은 테마들이 설정 창·기간 시트에서 같이 쓰는 색
+struct LightPalette {
+    let text: Color
+    let secondary: Color
+    let window: Color
+    let accent: Color
+    /// 주 버튼 채움
+    let primary: Color
+    let error: Color
+    let design: Font.Design
+}
+
+extension ThemeID {
+    var light: LightPalette? {
+        if self == .cute {
+            return LightPalette(text: .cute.ink, secondary: .cute.inkSecondary, window: .cute.window, accent: .cute.tomato,
+                                primary: .cute.butter, error: .cute.link, design: .default)
+        }
+        if let dog = DogStyle.of(self) {
+            return LightPalette(text: dog.text, secondary: dog.textSecondary, window: dog.window, accent: dog.focusAccent,
+                                primary: dog.focusAccent, error: dog.strong, design: .rounded)
+        }
+        return nil
     }
 }
 
@@ -56,6 +86,8 @@ struct MainWindowView: View {
         switch themeID {
         case .terminal: TerminalMainView()
         case .cute: CuteMainView()
+        case .pom: DogMainView(style: .seol)
+        case .golden: DogMainView(style: .golden)
         }
     }
 }
@@ -67,6 +99,7 @@ struct MenuBarPopover: View {
         switch themeID {
         case .terminal: TerminalPopover()
         case .cute: CutePopover()
+        case .pom, .golden: DogPopover(style: DogStyle.of(themeID) ?? .seol)
         }
     }
 }
@@ -82,6 +115,7 @@ struct MenuBarLabel: View {
             switch themeID {
             case .terminal: TerminalMenuBarLabel()
             case .cute: CuteMenuBarLabel()
+            case .pom, .golden: DogMenuBarLabel(style: DogStyle.of(themeID) ?? .seol)
             }
         }
         .onAppear {
@@ -102,6 +136,7 @@ struct MiniTimerView: View {
         switch themeID {
         case .terminal: TerminalMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
         case .cute: CuteMiniTimer(onOpenMain: onOpenMain, onClose: onClose)
+        case .pom, .golden: DogMiniTimer(style: DogStyle.of(themeID) ?? .seol, onOpenMain: onOpenMain, onClose: onClose)
         }
     }
 }
