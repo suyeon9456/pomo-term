@@ -10,12 +10,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct PomodoroTodoApp: App {
+struct PomoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store: AppStore
     @AppStorage(ThemeID.storageKey) private var themeID: ThemeID = .terminal
 
     init() {
+        // 설정을 읽기 전에 예전 번들 ID의 설정을 옮겨 옴 (스냅샷 모드는 건드리지 않음)
+        if Snapshot.outputDirectory == nil { LegacyMigration.run() }
         let store = AppStore(persistent: Snapshot.outputDirectory == nil)
         store.toggleMiniTimer = { MiniTimerController.shared.toggle(store: store) }
         if Snapshot.outputDirectory == nil { GlobalHotKey.shared.bind(to: store) }

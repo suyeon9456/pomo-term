@@ -1,5 +1,7 @@
 #!/bin/zsh
-# PomodoroTodo.app 빌드 스크립트 (Xcode 없이 Command Line Tools의 swiftc로 직접 빌드)
+# Pomo.app 빌드 스크립트 (Xcode 없이 swiftc로 직접 빌드)
+#   ./build.sh              Apple Silicon + Intel 유니버설
+#   ARCHS=arm64 ./build.sh  개발 중 빠르게 한 가지만
 set -e
 cd "$(dirname "$0")"
 
@@ -16,13 +18,24 @@ fi
 if [[ $SWIFTC == $CLT/* ]]; then
   SDK=$CLT/SDKs/MacOSX.sdk
 fi
-APP=build/PomodoroTodo.app
 
-rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+NAME=Pomo
+BUNDLE_ID=com.suyeon9456.pomo
+VERSION=$(cat VERSION)
+# 빌드 번호는 커밋 수 (git이 없으면 1)
+BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
+ARCHS=(${=ARCHS:-arm64 x86_64})
+APP=build/$NAME.app
+OBJ=build/obj
 
-"$SWIFTC" -O -swift-version 5 -sdk "$SDK" -target arm64-apple-macos14.0 \
-  -parse-as-library Sources/**/*.swift -o "$APP/Contents/MacOS/PomodoroTodo"
+rm -rf "$APP" "$OBJ"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$OBJ"
+
+for arch in $ARCHS; do
+  "$SWIFTC" -O -swift-version 5 -sdk "$SDK" -target $arch-apple-macos14.0 \
+    -parse-as-library Sources/**/*.swift -o "$OBJ/$NAME-$arch"
+done
+lipo -create "$OBJ"/$NAME-* -output "$APP/Contents/MacOS/$NAME"
 
 if [ -d Resources ]; then cp -R Resources/ "$APP/Contents/Resources/"; fi
 
@@ -31,19 +44,23 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>PomodoroTodo</string>
-  <key>CFBundleDisplayName</key><string>뽀모도로 할 일</string>
-  <key>CFBundleIdentifier</key><string>com.local.pomodorotodo</string>
-  <key>CFBundleExecutable</key><string>PomodoroTodo</string>
+  <key>CFBundleName</key><string>$NAME</string>
+  <key>CFBundleDisplayName</key><string>$NAME</string>
+  <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
+  <key>CFBundleExecutable</key><string>$NAME</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$BUILD</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSHumanReadableCopyright</key><string>© 2026 suyeon9456</string>
   <key>ATSApplicationFontsPath</key><string>Fonts</string>
 </dict>
 </plist>
 EOF
 
+# 개발용 임시 서명. 배포용 서명·공증은 scripts/release.sh
 codesign --force --sign - "$APP"
-echo "✅ 빌드 완료: $PWD/$APP"
+echo "✅ 빌드 완료: $PWD/$APP ($VERSION, build $BUILD, ${ARCHS[*]})"

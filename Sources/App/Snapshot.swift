@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 개발용: `PomodoroTodo --snapshot <폴더>`로 실행하면 각 화면을 샘플 데이터로 PNG 렌더링하고 종료.
+/// 개발용: `Pomo --snapshot <폴더>`로 실행하면 각 화면을 샘플 데이터로 PNG 렌더링하고 종료.
 /// 화면 녹화 권한 없이 시안과 비교하기 위한 도구. data.json은 건드리지 않음.
 @MainActor
 enum Snapshot {

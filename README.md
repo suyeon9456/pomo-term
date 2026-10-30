@@ -73,11 +73,11 @@ macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이�
 git clone https://github.com/suyeon9456/pomo-term.git
 cd pomo-term
 ./build.sh
-open build/PomodoroTodo.app
+open build/Pomo.app
 ```
 
 `build.sh`는 `xcrun`으로 찾은 `swiftc`(Xcode가 준비되지 않았으면 Command Line Tools)로 컴파일한 뒤 `.app` 번들(Info.plist, 폰트·이미지 포함)을 만들고 ad-hoc 서명까지 해요.
-계속 쓰려면 `build/PomodoroTodo.app`을 응용 프로그램 폴더로 옮기면 돼요.
+계속 쓰려면 `build/Pomo.app`을 응용 프로그램 폴더로 옮기면 돼요. 개발 중에는 `ARCHS=arm64 ./build.sh`로 한 가지만 빌드하면 빨라요.
 
 ## 사용법
 
@@ -153,7 +153,8 @@ open build/PomodoroTodo.app
 ```
 Sources/
 ├── App/
-│   ├── PomodoroTodoApp.swift   앱 시작점 (씬, 메뉴 명령, 테마 주입)
+│   ├── PomoApp.swift           앱 시작점 (씬, 메뉴 명령, 테마 주입)
+│   ├── LegacyMigration.swift   예전 번들 ID의 설정을 옮겨 옴
 │   ├── GlobalHotKey.swift      ⌘⇧P 전역 단축키
 │   └── Snapshot.swift          개발용 화면 스냅샷
 ├── Core/
@@ -176,7 +177,7 @@ Resources/Images/               설이·골든 타임 강아지 이미지
 화면을 PNG로 뽑아 보려면 (샘플 데이터 사용, `data.json`은 건드리지 않음):
 
 ```bash
-build/PomodoroTodo.app/Contents/MacOS/PomodoroTodo --snapshot ./snapshots
+build/Pomo.app/Contents/MacOS/Pomo --snapshot ./snapshots
 ```
 
 ## 폰트 라이선스
