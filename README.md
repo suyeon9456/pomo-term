@@ -67,6 +67,26 @@ macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이�
 [Releases](https://github.com/suyeon9456/pomo-term/releases)에서 `Pomo-<버전>.dmg`를 받아 열고, **Pomo**를 응용 프로그램 폴더로 끌어다 놓으면 돼요.
 macOS 14 (Sonoma) 이상, Apple Silicon · Intel 모두 지원해요.
 
+### 처음 열 때 (확인되지 않은 개발자 경고)
+
+지금 배포 파일은 Apple 개발자 서명·공증 전이라, 처음 열면 **"Pomo을(를) 열 수 없습니다"** 같은 경고가 나와요.
+한 번만 허용하면 다음부터는 그냥 열려요. 코드는 이 저장소에 모두 공개되어 있어요.
+
+**macOS 15 (Sequoia) 이후**
+1. 응용 프로그램 폴더에서 Pomo를 열어요. 경고가 나오면 **완료**를 눌러 닫아요
+2. **시스템 설정 → 개인정보 보호 및 보안**으로 가서 아래로 내리면 *"Pomo이(가) 차단되었습니다"* 옆에 **그래도 열기**가 있어요
+3. 누르고 암호(또는 Touch ID)를 입력한 뒤 **열기**
+
+**macOS 14 (Sonoma)**
+- Pomo를 **Control-클릭(우클릭) → 열기**, 경고 창에서 다시 **열기**
+
+**터미널이 편하다면** (위 과정 대신)
+```bash
+xattr -dr com.apple.quarantine /Applications/Pomo.app
+```
+
+받은 파일이 원본인지 확인하려면 Release에 함께 올린 `SHA256SUMS.txt`와 비교하세요: `shasum -a 256 Pomo-<버전>.dmg`
+
 ## 요구 사항 (직접 빌드할 때)
 
 - macOS 14 (Sonoma) 이상
