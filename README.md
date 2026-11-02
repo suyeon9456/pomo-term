@@ -62,9 +62,34 @@ macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이�
 |---|---|
 | ![설이 미니 타이머](docs/screenshots/seol-mini.png) | ![골든 타임 미니 타이머](docs/screenshots/golden-mini.png) |
 
-## 요구 사항
+## 설치
 
-- macOS 14 (Sonoma) 이상, Apple Silicon
+[Releases](https://github.com/suyeon9456/pomo-term/releases)에서 `Pomo-<버전>.dmg`를 받아 열고, **Pomo**를 응용 프로그램 폴더로 끌어다 놓으면 돼요.
+macOS 14 (Sonoma) 이상, Apple Silicon · Intel 모두 지원해요.
+
+### 처음 열 때 (확인되지 않은 개발자 경고)
+
+지금 배포 파일은 Apple 개발자 서명·공증 전이라, 처음 열면 **"Pomo을(를) 열 수 없습니다"** 같은 경고가 나와요.
+한 번만 허용하면 다음부터는 그냥 열려요. 코드는 이 저장소에 모두 공개되어 있어요.
+
+**macOS 15 (Sequoia) 이후**
+1. 응용 프로그램 폴더에서 Pomo를 열어요. 경고가 나오면 **완료**를 눌러 닫아요
+2. **시스템 설정 → 개인정보 보호 및 보안**으로 가서 아래로 내리면 *"Pomo이(가) 차단되었습니다"* 옆에 **그래도 열기**가 있어요
+3. 누르고 암호(또는 Touch ID)를 입력한 뒤 **열기**
+
+**macOS 14 (Sonoma)**
+- Pomo를 **Control-클릭(우클릭) → 열기**, 경고 창에서 다시 **열기**
+
+**터미널이 편하다면** (위 과정 대신)
+```bash
+xattr -dr com.apple.quarantine /Applications/Pomo.app
+```
+
+받은 파일이 원본인지 확인하려면 Release에 함께 올린 `SHA256SUMS.txt`와 비교하세요: `shasum -a 256 Pomo-<버전>.dmg`
+
+## 요구 사항 (직접 빌드할 때)
+
+- macOS 14 (Sonoma) 이상
 - Command Line Tools for Xcode (`xcode-select --install`). Xcode 앱은 없어도 빌드돼요
 
 ## 빌드 · 실행
@@ -73,11 +98,11 @@ macOS 뽀모도로 + 할 일 관리 앱. SwiftUI로 만든 네이티브 앱이�
 git clone https://github.com/suyeon9456/pomo-term.git
 cd pomo-term
 ./build.sh
-open build/PomodoroTodo.app
+open build/Pomo.app
 ```
 
 `build.sh`는 `xcrun`으로 찾은 `swiftc`(Xcode가 준비되지 않았으면 Command Line Tools)로 컴파일한 뒤 `.app` 번들(Info.plist, 폰트·이미지 포함)을 만들고 ad-hoc 서명까지 해요.
-계속 쓰려면 `build/PomodoroTodo.app`을 응용 프로그램 폴더로 옮기면 돼요.
+계속 쓰려면 `build/Pomo.app`을 응용 프로그램 폴더로 옮기면 돼요. 개발 중에는 `ARCHS=arm64 ./build.sh`로 한 가지만 빌드하면 빨라요.
 
 ## 사용법
 
@@ -153,7 +178,8 @@ open build/PomodoroTodo.app
 ```
 Sources/
 ├── App/
-│   ├── PomodoroTodoApp.swift   앱 시작점 (씬, 메뉴 명령, 테마 주입)
+│   ├── PomoApp.swift           앱 시작점 (씬, 메뉴 명령, 테마 주입)
+│   ├── LegacyMigration.swift   예전 번들 ID의 설정을 옮겨 옴
 │   ├── GlobalHotKey.swift      ⌘⇧P 전역 단축키
 │   └── Snapshot.swift          개발용 화면 스냅샷
 ├── Core/
@@ -173,10 +199,13 @@ Resources/Fonts/                JetBrains Mono, Nanum Gothic Coding (터미널 �
 Resources/Images/               설이·골든 타임 강아지 이미지
 ```
 
+배포용 파일(서명·공증한 DMG·zip)은 `./scripts/release.sh`로 만들어요. 처음 한 번 필요한 준비는 [docs/RELEASING.md](docs/RELEASING.md)에 있어요.
+앱 아이콘을 바꾸려면 `Sources/App/AppIconArt.swift`를 고치고 `./scripts/make-icon.sh`를 실행하면 돼요.
+
 화면을 PNG로 뽑아 보려면 (샘플 데이터 사용, `data.json`은 건드리지 않음):
 
 ```bash
-build/PomodoroTodo.app/Contents/MacOS/PomodoroTodo --snapshot ./snapshots
+build/Pomo.app/Contents/MacOS/Pomo --snapshot ./snapshots
 ```
 
 ## 폰트 라이선스
